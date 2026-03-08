@@ -5,26 +5,26 @@ import LanguageSwitcher from "@/components/LanguageSwitcher";
 import FeatureCard from "@/components/FeatureCard";
 import shieldIcon from "@/assets/shield-icon.png";
 import { useAuth } from "@/hooks/useAuth";
+import { useLanguage } from "@/hooks/useLanguage";
 
 const Index = () => {
   const { user, signOut } = useAuth();
+  const { t } = useLanguage();
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      {/* Header */}
       <header className="flex items-center justify-between px-6 py-4">
         <div>
           {user && (
             <button onClick={signOut} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
               <LogOut className="h-4 w-4" />
-              Logout
+              {t("logout")}
             </button>
           )}
         </div>
         <LanguageSwitcher />
       </header>
 
-      {/* Hero */}
       <main className="flex flex-1 flex-col items-center justify-center px-6 pb-12">
         <div className="w-full max-w-md space-y-8">
           <div className="flex justify-center">
@@ -34,43 +34,41 @@ const Index = () => {
           </div>
 
           <div className="space-y-2 text-center">
-            <h1 className="text-4xl font-extrabold tracking-tight text-foreground">SafeGuard</h1>
-            <p className="text-lg font-medium text-primary">Your Safety, Our Priority</p>
-            <p className="mx-auto max-w-xs text-sm text-muted-foreground">
-              Report crimes, access emergency services, and get help — all in one app.
-            </p>
+            <h1 className="text-4xl font-extrabold tracking-tight text-foreground">{t("appName")}</h1>
+            <p className="text-lg font-medium text-primary">{t("tagline")}</p>
+            <p className="mx-auto max-w-xs text-sm text-muted-foreground">{t("heroDesc")}</p>
             {user && (
               <p className="text-sm font-medium text-primary">
-                Welcome, {user.user_metadata?.full_name || user.email}
+                {t("welcome")}, {user.user_metadata?.full_name || user.email}
               </p>
             )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <FeatureCard icon={FileText} title="File Complaint" description="Report an incident" to="/file-complaint" />
-            <FeatureCard icon={AlertTriangle} title="SOS Emergency" description="Instant alert" variant="emergency" to="/sos-emergency" />
-            <FeatureCard icon={MapPin} title="Nearby Stations" description="Find police help" to="/nearby-stations" />
-            <FeatureCard icon={Heart} title="Nearby Hospitals" description="Find medical help" to="/nearby-hospitals" />
+            <FeatureCard icon={FileText} title={t("fileComplaint")} description={t("reportIncident")} to="/file-complaint" />
+            <FeatureCard icon={AlertTriangle} title={t("sosEmergency")} description={t("instantAlert")} variant="emergency" to="/sos-emergency" />
+            <FeatureCard icon={MapPin} title={t("nearbyStations")} description={t("findPoliceHelp")} to="/nearby-stations" />
+            <FeatureCard icon={Heart} title={t("nearbyHospitals")} description={t("findMedicalHelp")} to="/nearby-hospitals" />
             {user ? (
-              <FeatureCard icon={ClipboardList} title="My Complaints" description="Track status" to="/my-complaints" />
+              <FeatureCard icon={ClipboardList} title={t("myComplaints")} description={t("trackStatus")} to="/my-complaints" />
             ) : (
-              <FeatureCard icon={Phone} title="Emergency Call" description="Quick dial" variant="emergency" to="/sos-emergency" />
+              <FeatureCard icon={Phone} title={t("emergencyCall")} description={t("quickDial")} variant="emergency" to="/sos-emergency" />
             )}
           </div>
 
           <div className="space-y-3 pt-2">
             {user ? (
               <Button asChild className="w-full rounded-xl py-6 text-base font-semibold shadow-elevated">
-                <Link to="/file-complaint">File a Complaint</Link>
+                <Link to="/file-complaint">{t("fileComplaint")}</Link>
               </Button>
             ) : (
               <>
                 <Button asChild className="w-full rounded-xl py-6 text-base font-semibold shadow-elevated">
-                  <Link to="/auth">Get Started</Link>
+                  <Link to="/auth">{t("getStarted")}</Link>
                 </Button>
                 <p className="text-center text-sm text-muted-foreground">
-                  Already have an account?{" "}
-                  <Link to="/auth" className="font-medium text-primary hover:underline">Login</Link>
+                  {t("alreadyHaveAccount")}{" "}
+                  <Link to="/auth" className="font-medium text-primary hover:underline">{t("login")}</Link>
                 </p>
               </>
             )}
