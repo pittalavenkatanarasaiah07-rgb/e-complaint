@@ -9,6 +9,7 @@ import Auth from "./pages/Auth";
 import FileComplaint from "./pages/FileComplaint";
 import SOSEmergency from "./pages/SOSEmergency";
 import NearbyStations from "./pages/NearbyStations";
+import NearbyHospitals from "./pages/NearbyHospitals";
 import MyComplaints from "./pages/MyComplaints";
 import NotFound from "./pages/NotFound";
 
@@ -26,7 +27,8 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/file-complaint" element={<FileComplaint />} />
             <Route path="/sos-emergency" element={<SOSEmergency />} />
-            <Route path="/nearby-stations" element={<NearbyStations />} />
+          <Route path="/nearby-stations" element={<NearbyStations />} />
+          <Route path="/nearby-hospitals" element={<NearbyHospitals />} />
             <Route path="/my-complaints" element={<MyComplaints />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
