@@ -26,6 +26,7 @@ const NearbyStations = () => {
   const mapInstanceRef = useRef<any>(null);
   const directionsRendererRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
+  const showRouteRef = useRef<(station: Station) => void>(() => {});
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [stations, setStations] = useState<Station[]>([]);
   const [mapLoaded, setMapLoaded] = useState(false);
@@ -43,6 +44,19 @@ const NearbyStations = () => {
     );
   }, []);
 
+  const getDistanceNum = (from: { lat: number; lng: number }, to: { lat: number; lng: number }) => {
+    const R = 6371;
+    const dLat = ((to.lat - from.lat) * Math.PI) / 180;
+    const dLng = ((to.lng - from.lng) * Math.PI) / 180;
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos((from.lat * Math.PI) / 180) * Math.cos((to.lat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  };
+
+  const getDistance = (s: Station) => {
+    if (!userLocation) return "—";
+    return `${getDistanceNum(userLocation, s).toFixed(1)} km`;
+  };
+
   const fetchTravelTimes = useCallback((destination: Station) => {
     const google = (window as any).google;
     if (!userLocation || !google) return;
@@ -51,14 +65,12 @@ const NearbyStations = () => {
     const origin = new google.maps.LatLng(userLocation.lat, userLocation.lng);
     const dest = new google.maps.LatLng(destination.lat, destination.lng);
 
-    const modes = [
-      { mode: google.maps.TravelMode.WALKING, key: "walking" },
-      { mode: google.maps.TravelMode.DRIVING, key: "fourWheeler" },
-    ];
-
     const info: TravelInfo = { walking: "...", twoWheeler: "...", fourWheeler: "..." };
 
-    modes.forEach(({ mode, key }) => {
+    [
+      { mode: google.maps.TravelMode.WALKING, key: "walking" },
+      { mode: google.maps.TravelMode.DRIVING, key: "fourWheeler" },
+    ].forEach(({ mode, key }) => {
       service.getDistanceMatrix(
         { origins: [origin], destinations: [dest], travelMode: mode },
         (response: any, status: string) => {
@@ -87,30 +99,45 @@ const NearbyStations = () => {
 
     if (directionsRendererRef.current) directionsRendererRef.current.setMap(null);
 
-    if (activeRoute === destination.placeId) { setActiveRoute(null); return; }
-
-    const directionsService = new google.maps.DirectionsService();
-    const directionsRenderer = new google.maps.DirectionsRenderer({
-      map, suppressMarkers: true,
-      polylineOptions: { strokeColor: "hsl(220, 80%, 50%)", strokeWeight: 5, strokeOpacity: 0.8 },
-    });
-    directionsRendererRef.current = directionsRenderer;
-
-    directionsService.route(
-      {
-        origin: new google.maps.LatLng(userLocation.lat, userLocation.lng),
-        destination: new google.maps.LatLng(destination.lat, destination.lng),
-        travelMode: google.maps.TravelMode.DRIVING,
-      },
-      (result: any, status: string) => {
-        if (status === "OK") {
-          directionsRenderer.setDirections(result);
-          setActiveRoute(destination.placeId || null);
-          fetchTravelTimes(destination);
-        }
+    setActiveRoute((prev) => {
+      if (prev === destination.placeId) {
+        return null;
       }
-    );
-  }, [userLocation, activeRoute, fetchTravelTimes]);
+
+      const directionsService = new google.maps.DirectionsService();
+      const directionsRenderer = new google.maps.DirectionsRenderer({
+        map, suppressMarkers: true,
+        polylineOptions: { strokeColor: "#2563EB", strokeWeight: 6, strokeOpacity: 0.9 },
+      });
+      directionsRendererRef.current = directionsRenderer;
+
+      directionsService.route(
+        {
+          origin: new google.maps.LatLng(userLocation.lat, userLocation.lng),
+          destination: new google.maps.LatLng(destination.lat, destination.lng),
+          travelMode: google.maps.TravelMode.DRIVING,
+        },
+        (result: any, status: string) => {
+          if (status === "OK") {
+            directionsRenderer.setDirections(result);
+            fetchTravelTimes(destination);
+            // Pan map to show route
+            const bounds = new google.maps.LatLngBounds();
+            bounds.extend(new google.maps.LatLng(userLocation.lat, userLocation.lng));
+            bounds.extend(new google.maps.LatLng(destination.lat, destination.lng));
+            map.fitBounds(bounds, 60);
+          }
+        }
+      );
+
+      return destination.placeId || null;
+    });
+  }, [userLocation, fetchTravelTimes]);
+
+  // Keep ref in sync so marker click handlers always call latest showRoute
+  useEffect(() => {
+    showRouteRef.current = showRoute;
+  }, [showRoute]);
 
   const searchNearbyStations = useCallback((map: any, location: { lat: number; lng: number }) => {
     const google = (window as any).google;
@@ -140,10 +167,7 @@ const NearbyStations = () => {
               icon: { url: "https://maps.google.com/mapfiles/ms/icons/blue-dot.png" },
             });
             markersRef.current.push(marker);
-
-            marker.addListener("click", () => {
-              showRoute(s);
-            });
+            marker.addListener("click", () => showRouteRef.current(s));
           });
 
           if (found.length > 0) {
@@ -173,15 +197,14 @@ const NearbyStations = () => {
 
       new google.maps.Marker({
         position: userLocation, map,
-        icon: { path: google.maps.SymbolPath.CIRCLE, scale: 10, fillColor: "hsl(220, 80%, 50%)", fillOpacity: 1, strokeColor: "#fff", strokeWeight: 3 },
+        icon: { path: google.maps.SymbolPath.CIRCLE, scale: 10, fillColor: "#2563EB", fillOpacity: 1, strokeColor: "#fff", strokeWeight: 3 },
         title: "Your Location", zIndex: 999,
       });
 
-      // Draw 2km radius circle
       new google.maps.Circle({
         map, center: userLocation, radius: 2000,
-        fillColor: "hsl(220, 80%, 50%)", fillOpacity: 0.05,
-        strokeColor: "hsl(220, 80%, 50%)", strokeOpacity: 0.3, strokeWeight: 1,
+        fillColor: "#2563EB", fillOpacity: 0.05,
+        strokeColor: "#2563EB", strokeOpacity: 0.3, strokeWeight: 1,
       });
 
       setMapLoaded(true);
@@ -196,19 +219,6 @@ const NearbyStations = () => {
     } else { loadAndInit(); }
   }, [userLocation, searchNearbyStations]);
 
-  const getDistanceNum = (from: { lat: number; lng: number }, to: { lat: number; lng: number }) => {
-    const R = 6371;
-    const dLat = ((to.lat - from.lat) * Math.PI) / 180;
-    const dLng = ((to.lng - from.lng) * Math.PI) / 180;
-    const a = Math.sin(dLat / 2) ** 2 + Math.cos((from.lat * Math.PI) / 180) * Math.cos((to.lat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  };
-
-  const getDistance = (s: Station) => {
-    if (!userLocation) return "—";
-    return `${getDistanceNum(userLocation, s).toFixed(1)} km`;
-  };
-
   const retryLocation = () => {
     setLocationError(false); setLoading(true);
     navigator.geolocation.getCurrentPosition(
@@ -216,6 +226,16 @@ const NearbyStations = () => {
       () => { setLocationError(true); setLoading(false); },
       { enableHighAccuracy: true, timeout: 10000 }
     );
+  };
+
+  // Scroll to top of map when route is shown
+  const scrollToMap = () => {
+    mapRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const handleStationClick = (station: Station) => {
+    showRoute(station);
+    scrollToMap();
   };
 
   return (
@@ -233,7 +253,8 @@ const NearbyStations = () => {
           </div>
         ) : (
           <>
-            <div className="relative h-72 rounded-2xl border border-border overflow-hidden bg-muted">
+            {/* Map - taller for better route visibility */}
+            <div className="relative h-[50vh] min-h-[350px] rounded-2xl border border-border overflow-hidden bg-muted">
               {!mapLoaded && (
                 <div className="absolute inset-0 flex items-center justify-center z-10 bg-muted">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
@@ -264,64 +285,74 @@ const NearbyStations = () => {
               </div>
             ) : (
               <div className="space-y-3">
-                <p className="text-sm font-medium text-foreground">{stations.length} stations found</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-foreground">{stations.length} Police Stations Found</p>
+                  <p className="text-xs text-muted-foreground">Tap to see route</p>
+                </div>
                 {stations.map((station, i) => (
                   <div
                     key={station.placeId || i}
-                    className={`rounded-2xl border bg-card p-4 shadow-card transition-all hover:shadow-elevated cursor-pointer ${activeRoute === station.placeId ? "border-primary" : "border-border"}`}
-                    onClick={() => showRoute(station)}
+                    className={`rounded-2xl border bg-card p-4 shadow-card transition-all hover:shadow-elevated cursor-pointer ${activeRoute === station.placeId ? "border-primary ring-2 ring-primary/20" : "border-border"}`}
+                    onClick={() => handleStationClick(station)}
                   >
                     <div className="flex items-start justify-between">
                       <div className="space-y-1 flex-1 min-w-0">
-                        <h3 className="font-semibold text-foreground">{station.name}</h3>
-                        <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <MapPin className="h-3 w-3 shrink-0" />
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                            <MapPin className="h-4 w-4 text-primary" />
+                          </div>
+                          <h3 className="font-semibold text-foreground leading-tight">{station.name}</h3>
+                        </div>
+                        <p className="flex items-center gap-1 text-xs text-muted-foreground pl-10">
                           <span className="truncate">{station.address}</span>
                         </p>
                       </div>
-                      <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary ml-2">{getDistance(station)}</span>
+                      <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-bold text-primary ml-2">{getDistance(station)}</span>
                     </div>
-                    <div className="mt-3 flex items-center gap-4">
-                      <span className={`flex items-center gap-1 text-xs font-medium ${station.open !== false ? "text-success" : "text-muted-foreground"}`}>
+
+                    <div className="mt-3 flex items-center gap-4 pl-10">
+                      <span className={`flex items-center gap-1 text-xs font-medium ${station.open !== false ? "text-green-600" : "text-muted-foreground"}`}>
                         <Clock className="h-3.5 w-3.5" />{station.open !== false ? "Open" : "Closed"}
+                      </span>
+                      <span className={`inline-flex items-center gap-1 text-xs font-medium ${activeRoute === station.placeId ? "text-blue-600" : "text-primary"}`}>
+                        <Route className="h-3 w-3" />
+                        {activeRoute === station.placeId ? "Route Shown ✓" : "Tap for Route"}
                       </span>
                     </div>
 
-                    {/* Travel time info */}
+                    {/* Travel time info when route active */}
                     {activeRoute === station.placeId && travelTimes[station.placeId || ""] && (
-                      <div className="mt-3 grid grid-cols-3 gap-2 rounded-xl bg-muted/50 p-3">
+                      <div className="mt-3 grid grid-cols-3 gap-2 rounded-xl bg-primary/5 p-3 border border-primary/10">
                         <div className="flex flex-col items-center gap-1 text-center">
-                          <Footprints className="h-4 w-4 text-primary" />
+                          <Footprints className="h-5 w-5 text-primary" />
                           <span className="text-[10px] text-muted-foreground">Walking</span>
-                          <span className="text-xs font-semibold text-foreground">{travelTimes[station.placeId || ""].walking}</span>
+                          <span className="text-xs font-bold text-foreground">{travelTimes[station.placeId || ""].walking}</span>
                         </div>
                         <div className="flex flex-col items-center gap-1 text-center">
-                          <Bike className="h-4 w-4 text-primary" />
+                          <Bike className="h-5 w-5 text-primary" />
                           <span className="text-[10px] text-muted-foreground">Two Wheeler</span>
-                          <span className="text-xs font-semibold text-foreground">{travelTimes[station.placeId || ""].twoWheeler}</span>
+                          <span className="text-xs font-bold text-foreground">{travelTimes[station.placeId || ""].twoWheeler}</span>
                         </div>
                         <div className="flex flex-col items-center gap-1 text-center">
-                          <Car className="h-4 w-4 text-primary" />
+                          <Car className="h-5 w-5 text-primary" />
                           <span className="text-[10px] text-muted-foreground">Four Wheeler</span>
-                          <span className="text-xs font-semibold text-foreground">{travelTimes[station.placeId || ""].fourWheeler}</span>
+                          <span className="text-xs font-bold text-foreground">{travelTimes[station.placeId || ""].fourWheeler}</span>
                         </div>
                       </div>
                     )}
 
-                    <div className="mt-2 flex items-center gap-3">
-                      <span className={`inline-flex items-center gap-1 text-xs font-medium ${activeRoute === station.placeId ? "text-emergency" : "text-primary"}`}>
-                        <Route className="h-3 w-3" />
-                        {activeRoute === station.placeId ? "Route Shown ✓" : "Tap for Route"}
-                      </span>
-                      <a
-                        href={`https://www.google.com/maps/dir/?api=1&destination=${station.lat},${station.lng}&destination_place_id=${station.placeId}`}
-                        target="_blank" rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <Navigation className="h-3 w-3" />Get Directions
-                      </a>
-                    </div>
+                    {activeRoute === station.placeId && (
+                      <div className="mt-2 flex justify-end">
+                        <a
+                          href={`https://www.google.com/maps/dir/?api=1&destination=${station.lat},${station.lng}&destination_place_id=${station.placeId}`}
+                          target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Navigation className="h-3 w-3" />Open in Google Maps
+                        </a>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
