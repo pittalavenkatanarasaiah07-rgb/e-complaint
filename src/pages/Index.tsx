@@ -1,4 +1,5 @@
 import { FileText, AlertTriangle, MapPin, Phone } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import FeatureCard from "@/components/FeatureCard";
