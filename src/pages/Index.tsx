@@ -1,85 +1,80 @@
-import { FileText, AlertTriangle, MapPin, Phone } from "lucide-react";
+import { FileText, AlertTriangle, MapPin, Phone, ClipboardList, LogOut } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import FeatureCard from "@/components/FeatureCard";
 import shieldIcon from "@/assets/shield-icon.png";
+import { useAuth } from "@/hooks/useAuth";
 
 const Index = () => {
+  const { user, signOut } = useAuth();
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       {/* Header */}
-      <header className="flex items-center justify-end px-6 py-4">
+      <header className="flex items-center justify-between px-6 py-4">
+        <div>
+          {user && (
+            <button onClick={signOut} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+              <LogOut className="h-4 w-4" />
+              Logout
+            </button>
+          )}
+        </div>
         <LanguageSwitcher />
       </header>
 
       {/* Hero */}
       <main className="flex flex-1 flex-col items-center justify-center px-6 pb-12">
         <div className="w-full max-w-md space-y-8">
-          {/* Shield Icon */}
           <div className="flex justify-center">
             <div className="animate-float">
               <img src={shieldIcon} alt="SafeGuard shield" className="h-24 w-24 drop-shadow-lg" />
             </div>
           </div>
 
-          {/* Title */}
           <div className="space-y-2 text-center">
-            <h1 className="text-4xl font-extrabold tracking-tight text-foreground">
-              SafeGuard
-            </h1>
-            <p className="text-lg font-medium text-primary">
-              Your Safety, Our Priority
-            </p>
+            <h1 className="text-4xl font-extrabold tracking-tight text-foreground">SafeGuard</h1>
+            <p className="text-lg font-medium text-primary">Your Safety, Our Priority</p>
             <p className="mx-auto max-w-xs text-sm text-muted-foreground">
-              Report crimes, access emergency services, and get help — all in one app. Completely free.
+              Report crimes, access emergency services, and get help — all in one app.
             </p>
+            {user && (
+              <p className="text-sm font-medium text-primary">
+                Welcome, {user.user_metadata?.full_name || user.email}
+              </p>
+            )}
           </div>
 
-          {/* Feature Cards */}
           <div className="grid grid-cols-2 gap-3">
-            <FeatureCard
-              icon={FileText}
-              title="File Complaint"
-              description="Report an incident"
-              to="/file-complaint"
-            />
-            <FeatureCard
-              icon={AlertTriangle}
-              title="SOS Emergency"
-              description="Instant alert"
-              variant="emergency"
-              to="/sos-emergency"
-            />
-            <FeatureCard
-              icon={MapPin}
-              title="Nearby Stations"
-              description="Find police help"
-              to="/nearby-stations"
-            />
-            <FeatureCard
-              icon={Phone}
-              title="Emergency Call"
-              description="Quick dial"
-              variant="emergency"
-              to="/sos-emergency"
-            />
+            <FeatureCard icon={FileText} title="File Complaint" description="Report an incident" to="/file-complaint" />
+            <FeatureCard icon={AlertTriangle} title="SOS Emergency" description="Instant alert" variant="emergency" to="/sos-emergency" />
+            <FeatureCard icon={MapPin} title="Nearby Stations" description="Find police help" to="/nearby-stations" />
+            {user ? (
+              <FeatureCard icon={ClipboardList} title="My Complaints" description="Track status" to="/my-complaints" />
+            ) : (
+              <FeatureCard icon={Phone} title="Emergency Call" description="Quick dial" variant="emergency" to="/sos-emergency" />
+            )}
           </div>
 
-          {/* CTA */}
           <div className="space-y-3 pt-2">
-            <Button asChild className="w-full rounded-xl py-6 text-base font-semibold shadow-elevated">
-              <Link to="/file-complaint">Get Started</Link>
-            </Button>
-            <p className="text-center text-sm text-muted-foreground">
-              Already have an account?{" "}
-              <a href="#" className="font-medium text-primary hover:underline">
-                Login
-              </a>
-            </p>
+            {user ? (
+              <Button asChild className="w-full rounded-xl py-6 text-base font-semibold shadow-elevated">
+                <Link to="/file-complaint">File a Complaint</Link>
+              </Button>
+            ) : (
+              <>
+                <Button asChild className="w-full rounded-xl py-6 text-base font-semibold shadow-elevated">
+                  <Link to="/auth">Get Started</Link>
+                </Button>
+                <p className="text-center text-sm text-muted-foreground">
+                  Already have an account?{" "}
+                  <Link to="/auth" className="font-medium text-primary hover:underline">Login</Link>
+                </p>
+              </>
+            )}
           </div>
 
-          {/* SOS floating button */}
           <Link to="/sos-emergency" className="fixed bottom-8 right-8">
             <div className="relative">
               <div className="absolute inset-0 animate-pulse-ring rounded-full bg-emergency" />
