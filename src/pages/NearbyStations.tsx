@@ -102,15 +102,16 @@ const NearbyStations = () => {
 
       <main className="flex-1 space-y-4 px-5 py-6">
         {/* Google Map */}
-        <div ref={mapRef} className="h-56 rounded-2xl border border-border overflow-hidden bg-muted">
+        <div className="relative h-56 rounded-2xl border border-border overflow-hidden bg-muted">
           {!mapLoaded && (
-            <div className="flex h-full items-center justify-center">
+            <div className="absolute inset-0 flex items-center justify-center z-10">
               <div className="flex flex-col items-center gap-2 text-muted-foreground">
                 <Navigation className="h-8 w-8 text-primary animate-pulse" />
                 <span className="text-sm font-medium">Loading map...</span>
               </div>
             </div>
           )}
+          <div ref={mapRef} className="h-full w-full" />
         </div>
 
         {/* Station list */}
