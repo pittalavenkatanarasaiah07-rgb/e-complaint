@@ -120,31 +120,42 @@ const Auth = () => {
           {step === "verify-phone" && (
             <div className="space-y-4">
               <div className="space-y-1 text-center">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10"><Shield className="h-8 w-8 text-primary" /></div>
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+                  <Shield className="h-8 w-8 text-primary" />
+                </div>
                 <h2 className="text-lg font-bold text-foreground">{t("enterOtp")}</h2>
-                <p className="text-sm text-muted-foreground">{t("enterOtpDesc")} <span className="font-medium text-foreground">{phone}</span></p>
+                <p className="text-sm text-muted-foreground">
+                  {t("enterOtpDesc")} <span className="font-medium text-foreground">{phone}</span>
+                </p>
               </div>
-              <Input value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="Enter 6-digit OTP" className="rounded-xl text-center text-lg tracking-widest" maxLength={6} />
-              <Button onClick={handleVerifyPhoneOtp} disabled={loading} className="w-full rounded-xl py-6 text-base font-semibold shadow-elevated">{loading ? t("verifying") : t("verifyAndContinue")}</Button>
-              <button onClick={handleSendPhoneOtp} className="w-full text-center text-sm text-muted-foreground hover:text-foreground">{t("resendOtp")}</button>
-            </div>
-          )}
-
-          {step === "login" && (
-            <div className="space-y-4">
-              <div className="space-y-1 text-center">
-                <h2 className="text-lg font-bold text-foreground">{t("welcomeBack")}</h2>
-                <p className="text-sm text-muted-foreground">{t("loginDesc")}</p>
+              <Input 
+                value={otp} 
+                onChange={(e) => setOtp(e.target.value)} 
+                placeholder="Enter 6-digit OTP" 
+                className="rounded-xl text-center text-lg tracking-widest" 
+                maxLength={6} 
+              />
+              <Button 
+                onClick={handleVerifyPhoneOtp} 
+                disabled={loading} 
+                className="w-full rounded-xl py-6 text-base font-semibold shadow-elevated"
+              >
+                {loading ? t("verifying") : t("verifyAndContinue")}
+              </Button>
+              <div className="flex flex-col gap-2">
+                <button 
+                  onClick={handleSendPhoneOtp} 
+                  className="w-full text-center text-sm text-muted-foreground hover:text-foreground"
+                >
+                  {t("resendOtp")}
+                </button>
+                <button 
+                  onClick={() => setStep("phone")} 
+                  className="w-full text-center text-sm text-muted-foreground hover:text-foreground"
+                >
+                  Change phone number
+                </button>
               </div>
-              <div className="space-y-3">
-                <div className="space-y-1.5"><Label>{t("email")}</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t("emailPlaceholder")} className="rounded-xl" /></div>
-                <div className="space-y-1.5"><Label>{t("password")}</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t("yourPassword")} className="rounded-xl" /></div>
-              </div>
-              <Button onClick={handleLogin} disabled={loading} className="w-full rounded-xl py-6 text-base font-semibold shadow-elevated">{loading ? t("loggingIn") : t("login")}</Button>
-              <p className="text-center text-sm text-muted-foreground">
-                {t("dontHaveAccount")}{" "}
-                <button onClick={() => setStep("signup")} className="font-medium text-primary hover:underline">{t("signUp")}</button>
-              </p>
             </div>
           )}
         </div>
