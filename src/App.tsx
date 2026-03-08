@@ -9,6 +9,7 @@ import Auth from "./pages/Auth";
 import FileComplaint from "./pages/FileComplaint";
 import SOSEmergency from "./pages/SOSEmergency";
 import NearbyStations from "./pages/NearbyStations";
+import NearbyHospitals from "./pages/NearbyHospitals";
 import MyComplaints from "./pages/MyComplaints";
 import NotFound from "./pages/NotFound";
 
