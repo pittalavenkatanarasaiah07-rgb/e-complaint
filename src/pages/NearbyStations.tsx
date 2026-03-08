@@ -241,28 +241,29 @@ const NearbyStations = () => {
     scrollToMap();
   };
 
+  const { t } = useLanguage();
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <PageHeader title="Nearby Stations" subtitle="Police stations near you" />
+      <PageHeader title={t("nearbyStations")} subtitle={t("policeStationsNearYou")} />
       <main className="flex-1 space-y-4 px-5 py-6">
         {locationError ? (
           <div className="flex flex-col items-center gap-4 rounded-2xl border border-border bg-card p-8 text-center">
             <AlertCircle className="h-10 w-10 text-emergency" />
             <div>
-              <h3 className="font-semibold text-foreground">Location Access Required</h3>
-              <p className="mt-1 text-sm text-muted-foreground">Please enable location access to find nearby police stations.</p>
+              <h3 className="font-semibold text-foreground">{t("locationRequired")}</h3>
+              <p className="mt-1 text-sm text-muted-foreground">{t("enableLocationPolice")}</p>
             </div>
-            <Button onClick={retryLocation} className="rounded-xl"><Navigation className="mr-2 h-4 w-4" />Try Again</Button>
+            <Button onClick={retryLocation} className="rounded-xl"><Navigation className="mr-2 h-4 w-4" />{t("tryAgain")}</Button>
           </div>
         ) : (
           <>
-            {/* Map - taller for better route visibility */}
             <div className="relative h-[50vh] min-h-[350px] rounded-2xl border border-border overflow-hidden bg-muted">
               {!mapLoaded && (
                 <div className="absolute inset-0 flex items-center justify-center z-10 bg-muted">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <Navigation className="h-8 w-8 text-primary animate-pulse" />
-                    <span className="text-sm font-medium">Detecting your location...</span>
+                    <span className="text-sm font-medium">{t("detectingLocation")}</span>
                   </div>
                 </div>
               )}
@@ -272,34 +273,34 @@ const NearbyStations = () => {
             {userLocation && (
               <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <MapPin className="h-3 w-3 text-primary" />
-                Your location: {userLocation.lat.toFixed(4)}, {userLocation.lng.toFixed(4)}
+                {t("yourLocation")}: {userLocation.lat.toFixed(4)}, {userLocation.lng.toFixed(4)}
               </p>
             )}
 
             {loading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                <span className="ml-2 text-sm text-muted-foreground">Finding nearby stations...</span>
+                <span className="ml-2 text-sm text-muted-foreground">{t("findingStations")}</span>
               </div>
             ) : stations.length === 0 ? (
               <div className="flex flex-col items-center gap-2 py-8 text-center">
                 <MapPin className="h-8 w-8 text-muted-foreground/50" />
-                <p className="text-sm text-muted-foreground">No police stations found nearby</p>
+                <p className="text-sm text-muted-foreground">{t("noStationsFound")}</p>
               </div>
             ) : (
               <div className="space-y-3">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
-                    placeholder="Search police stations..."
+                    placeholder={t("searchStations")}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-9 rounded-xl"
                   />
                 </div>
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold text-foreground">{stations.filter((s) => s.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.address.toLowerCase().includes(searchQuery.toLowerCase())).length} Police Stations Found</p>
-                  <p className="text-xs text-muted-foreground">Tap to see route</p>
+                  <p className="text-sm font-semibold text-foreground">{stations.filter((s) => s.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.address.toLowerCase().includes(searchQuery.toLowerCase())).length} {t("stationsFound")}</p>
+                  <p className="text-xs text-muted-foreground">{t("tapToSeeRoute")}</p>
                 </div>
                 {stations.filter((s) => s.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.address.toLowerCase().includes(searchQuery.toLowerCase())).map((station, i) => (
                   <div
@@ -324,30 +325,29 @@ const NearbyStations = () => {
 
                     <div className="mt-3 flex items-center gap-4 pl-10">
                       <span className={`flex items-center gap-1 text-xs font-medium ${station.open !== false ? "text-green-600" : "text-muted-foreground"}`}>
-                        <Clock className="h-3.5 w-3.5" />{station.open !== false ? "Open" : "Closed"}
+                        <Clock className="h-3.5 w-3.5" />{station.open !== false ? t("open") : t("closed")}
                       </span>
                       <span className={`inline-flex items-center gap-1 text-xs font-medium ${activeRoute === station.placeId ? "text-blue-600" : "text-primary"}`}>
                         <Route className="h-3 w-3" />
-                        {activeRoute === station.placeId ? "Route Shown ✓" : "Tap for Route"}
+                        {activeRoute === station.placeId ? t("routeShown") : t("tapForRoute")}
                       </span>
                     </div>
 
-                    {/* Travel time info when route active */}
                     {activeRoute === station.placeId && travelTimes[station.placeId || ""] && (
                       <div className="mt-3 grid grid-cols-3 gap-2 rounded-xl bg-primary/5 p-3 border border-primary/10">
                         <div className="flex flex-col items-center gap-1 text-center">
                           <Footprints className="h-5 w-5 text-primary" />
-                          <span className="text-[10px] text-muted-foreground">Walking</span>
+                          <span className="text-[10px] text-muted-foreground">{t("walking")}</span>
                           <span className="text-xs font-bold text-foreground">{travelTimes[station.placeId || ""].walking}</span>
                         </div>
                         <div className="flex flex-col items-center gap-1 text-center">
                           <Bike className="h-5 w-5 text-primary" />
-                          <span className="text-[10px] text-muted-foreground">Two Wheeler</span>
+                          <span className="text-[10px] text-muted-foreground">{t("twoWheeler")}</span>
                           <span className="text-xs font-bold text-foreground">{travelTimes[station.placeId || ""].twoWheeler}</span>
                         </div>
                         <div className="flex flex-col items-center gap-1 text-center">
                           <Car className="h-5 w-5 text-primary" />
-                          <span className="text-[10px] text-muted-foreground">Four Wheeler</span>
+                          <span className="text-[10px] text-muted-foreground">{t("fourWheeler")}</span>
                           <span className="text-xs font-bold text-foreground">{travelTimes[station.placeId || ""].fourWheeler}</span>
                         </div>
                       </div>
@@ -361,7 +361,7 @@ const NearbyStations = () => {
                           className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <Navigation className="h-3 w-3" />Open in Google Maps
+                          <Navigation className="h-3 w-3" />{t("openInGoogleMaps")}
                         </a>
                       </div>
                     )}
