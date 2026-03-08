@@ -6,52 +6,59 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import shieldIcon from "@/assets/shield-icon.png";
-import { ArrowLeft, Mail, Phone, Shield } from "lucide-react";
+import { ArrowLeft, Phone, Shield } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 
-type Step = "signup" | "verify-email" | "phone" | "verify-phone" | "login";
+type Step = "phone" | "verify-phone";
 
 const Auth = () => {
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const [step, setStep] = useState<Step>("signup");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [step, setStep] = useState<Step>("phone");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSignup = async () => {
-    if (!email || !password || !fullName) { toast.error("Please fill all fields"); return; }
-    setLoading(true);
-    const { error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: fullName }, emailRedirectTo: window.location.origin } });
-    setLoading(false);
-    if (error) { toast.error(error.message); } else { toast.success("Check your email for verification link!"); setStep("verify-email"); }
-  };
-
-  const handleLogin = async () => {
-    if (!email || !password) { toast.error("Please fill all fields"); return; }
-    setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (error) { toast.error(error.message); } else { toast.success("Welcome back!"); navigate("/"); }
-  };
-
   const handleSendPhoneOtp = async () => {
-    if (!phone) { toast.error("Enter your phone number"); return; }
+    if (!phone || !fullName) {
+      toast.error("Please fill all fields");
+      return;
+    }
     setLoading(true);
-    const { error } = await supabase.auth.updateUser({ phone });
+    const { error } = await supabase.auth.signInWithOtp({
+      phone,
+      options: {
+        data: { full_name: fullName }
+      }
+    });
     setLoading(false);
-    if (error) { toast.error(error.message); } else { toast.success("OTP sent to your phone!"); setStep("verify-phone"); }
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("OTP sent to your phone!");
+      setStep("verify-phone");
+    }
   };
 
   const handleVerifyPhoneOtp = async () => {
-    if (!otp) { toast.error("Enter the OTP"); return; }
+    if (!otp) {
+      toast.error("Enter the OTP");
+      return;
+    }
     setLoading(true);
-    const { error } = await supabase.auth.verifyOtp({ phone, token: otp, type: "phone_change" });
+    const { error } = await supabase.auth.verifyOtp({
+      phone,
+      token: otp,
+      type: "sms"
+    });
     setLoading(false);
-    if (error) { toast.error(error.message); } else { toast.success("Phone verified! You're all set."); navigate("/"); }
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("Phone verified! You're all set.");
+      navigate("/");
+    }
   };
 
   return (
@@ -69,77 +76,86 @@ const Auth = () => {
             <h1 className="text-2xl font-extrabold text-foreground">{t("appName")}</h1>
           </div>
 
-          {step === "signup" && (
-            <div className="space-y-4">
-              <div className="space-y-1 text-center">
-                <h2 className="text-lg font-bold text-foreground">{t("createAccount")}</h2>
-                <p className="text-sm text-muted-foreground">{t("signUpDesc")}</p>
-              </div>
-              <div className="space-y-3">
-                <div className="space-y-1.5"><Label>{t("fullName")}</Label><Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder={t("fullNamePlaceholder")} className="rounded-xl" /></div>
-                <div className="space-y-1.5"><Label>{t("email")}</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t("emailPlaceholder")} className="rounded-xl" /></div>
-                <div className="space-y-1.5"><Label>{t("password")}</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t("passwordPlaceholder")} className="rounded-xl" /></div>
-              </div>
-              <Button onClick={handleSignup} disabled={loading} className="w-full rounded-xl py-6 text-base font-semibold shadow-elevated">
-                <Mail className="mr-2 h-5 w-5" />{loading ? t("creating") : t("signUp")}
-              </Button>
-              <p className="text-center text-sm text-muted-foreground">
-                {t("alreadyHaveAccount")}{" "}
-                <button onClick={() => setStep("login")} className="font-medium text-primary hover:underline">{t("login")}</button>
-              </p>
-            </div>
-          )}
-
-          {step === "verify-email" && (
-            <div className="space-y-4 text-center">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10"><Mail className="h-8 w-8 text-primary" /></div>
-              <h2 className="text-lg font-bold text-foreground">{t("verifyEmail")}</h2>
-              <p className="text-sm text-muted-foreground">{t("verifyEmailDesc")} <span className="font-medium text-foreground">{email}</span></p>
-              <Button onClick={() => setStep("login")} variant="outline" className="w-full rounded-xl py-6">{t("verifyEmailAction")}</Button>
-            </div>
-          )}
 
           {step === "phone" && (
             <div className="space-y-4">
               <div className="space-y-1 text-center">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10"><Phone className="h-8 w-8 text-primary" /></div>
-                <h2 className="text-lg font-bold text-foreground">{t("verifyPhone")}</h2>
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+                  <Phone className="h-8 w-8 text-primary" />
+                </div>
+                <h2 className="text-lg font-bold text-foreground">{t("createAccount")}</h2>
                 <p className="text-sm text-muted-foreground">{t("verifyPhoneDesc")}</p>
               </div>
-              <div className="space-y-1.5"><Label>{t("phoneNumber")}</Label><Input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+91 XXXXX XXXXX" className="rounded-xl" /></div>
-              <Button onClick={handleSendPhoneOtp} disabled={loading} className="w-full rounded-xl py-6 text-base font-semibold shadow-elevated">{loading ? t("sendingOtp") : t("sendOtp")}</Button>
-              <button onClick={() => navigate("/")} className="w-full text-center text-sm text-muted-foreground hover:text-foreground">{t("skipForNow")}</button>
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label>{t("fullName")}</Label>
+                  <Input 
+                    value={fullName} 
+                    onChange={(e) => setFullName(e.target.value)} 
+                    placeholder={t("fullNamePlaceholder")} 
+                    className="rounded-xl" 
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>{t("phoneNumber")}</Label>
+                  <Input 
+                    type="tel" 
+                    value={phone} 
+                    onChange={(e) => setPhone(e.target.value)} 
+                    placeholder="+91 XXXXX XXXXX" 
+                    className="rounded-xl" 
+                  />
+                </div>
+              </div>
+              <Button 
+                onClick={handleSendPhoneOtp} 
+                disabled={loading} 
+                className="w-full rounded-xl py-6 text-base font-semibold shadow-elevated"
+              >
+                {loading ? t("sendingOtp") : t("sendOtp")}
+              </Button>
             </div>
           )}
 
           {step === "verify-phone" && (
             <div className="space-y-4">
               <div className="space-y-1 text-center">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10"><Shield className="h-8 w-8 text-primary" /></div>
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+                  <Shield className="h-8 w-8 text-primary" />
+                </div>
                 <h2 className="text-lg font-bold text-foreground">{t("enterOtp")}</h2>
-                <p className="text-sm text-muted-foreground">{t("enterOtpDesc")} <span className="font-medium text-foreground">{phone}</span></p>
+                <p className="text-sm text-muted-foreground">
+                  {t("enterOtpDesc")} <span className="font-medium text-foreground">{phone}</span>
+                </p>
               </div>
-              <Input value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="Enter 6-digit OTP" className="rounded-xl text-center text-lg tracking-widest" maxLength={6} />
-              <Button onClick={handleVerifyPhoneOtp} disabled={loading} className="w-full rounded-xl py-6 text-base font-semibold shadow-elevated">{loading ? t("verifying") : t("verifyAndContinue")}</Button>
-              <button onClick={handleSendPhoneOtp} className="w-full text-center text-sm text-muted-foreground hover:text-foreground">{t("resendOtp")}</button>
-            </div>
-          )}
-
-          {step === "login" && (
-            <div className="space-y-4">
-              <div className="space-y-1 text-center">
-                <h2 className="text-lg font-bold text-foreground">{t("welcomeBack")}</h2>
-                <p className="text-sm text-muted-foreground">{t("loginDesc")}</p>
+              <Input 
+                value={otp} 
+                onChange={(e) => setOtp(e.target.value)} 
+                placeholder="Enter 6-digit OTP" 
+                className="rounded-xl text-center text-lg tracking-widest" 
+                maxLength={6} 
+              />
+              <Button 
+                onClick={handleVerifyPhoneOtp} 
+                disabled={loading} 
+                className="w-full rounded-xl py-6 text-base font-semibold shadow-elevated"
+              >
+                {loading ? t("verifying") : t("verifyAndContinue")}
+              </Button>
+              <div className="flex flex-col gap-2">
+                <button 
+                  onClick={handleSendPhoneOtp} 
+                  className="w-full text-center text-sm text-muted-foreground hover:text-foreground"
+                >
+                  {t("resendOtp")}
+                </button>
+                <button 
+                  onClick={() => setStep("phone")} 
+                  className="w-full text-center text-sm text-muted-foreground hover:text-foreground"
+                >
+                  Change phone number
+                </button>
               </div>
-              <div className="space-y-3">
-                <div className="space-y-1.5"><Label>{t("email")}</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t("emailPlaceholder")} className="rounded-xl" /></div>
-                <div className="space-y-1.5"><Label>{t("password")}</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t("yourPassword")} className="rounded-xl" /></div>
-              </div>
-              <Button onClick={handleLogin} disabled={loading} className="w-full rounded-xl py-6 text-base font-semibold shadow-elevated">{loading ? t("loggingIn") : t("login")}</Button>
-              <p className="text-center text-sm text-muted-foreground">
-                {t("dontHaveAccount")}{" "}
-                <button onClick={() => setStep("signup")} className="font-medium text-primary hover:underline">{t("signUp")}</button>
-              </p>
             </div>
           )}
         </div>
