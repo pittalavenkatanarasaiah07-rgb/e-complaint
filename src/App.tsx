@@ -27,7 +27,8 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/file-complaint" element={<FileComplaint />} />
             <Route path="/sos-emergency" element={<SOSEmergency />} />
-            <Route path="/nearby-stations" element={<NearbyStations />} />
+          <Route path="/nearby-stations" element={<NearbyStations />} />
+          <Route path="/nearby-hospitals" element={<NearbyHospitals />} />
             <Route path="/my-complaints" element={<MyComplaints />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

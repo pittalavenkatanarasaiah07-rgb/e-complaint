@@ -50,6 +50,7 @@ const Index = () => {
             <FeatureCard icon={FileText} title="File Complaint" description="Report an incident" to="/file-complaint" />
             <FeatureCard icon={AlertTriangle} title="SOS Emergency" description="Instant alert" variant="emergency" to="/sos-emergency" />
             <FeatureCard icon={MapPin} title="Nearby Stations" description="Find police help" to="/nearby-stations" />
+            <FeatureCard icon={Heart} title="Nearby Hospitals" description="Find medical help" to="/nearby-hospitals" />
             {user ? (
               <FeatureCard icon={ClipboardList} title="My Complaints" description="Track status" to="/my-complaints" />
             ) : (
