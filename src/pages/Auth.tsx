@@ -76,35 +76,6 @@ const Auth = () => {
             <h1 className="text-2xl font-extrabold text-foreground">{t("appName")}</h1>
           </div>
 
-          {step === "signup" && (
-            <div className="space-y-4">
-              <div className="space-y-1 text-center">
-                <h2 className="text-lg font-bold text-foreground">{t("createAccount")}</h2>
-                <p className="text-sm text-muted-foreground">{t("signUpDesc")}</p>
-              </div>
-              <div className="space-y-3">
-                <div className="space-y-1.5"><Label>{t("fullName")}</Label><Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder={t("fullNamePlaceholder")} className="rounded-xl" /></div>
-                <div className="space-y-1.5"><Label>{t("email")}</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t("emailPlaceholder")} className="rounded-xl" /></div>
-                <div className="space-y-1.5"><Label>{t("password")}</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t("passwordPlaceholder")} className="rounded-xl" /></div>
-              </div>
-              <Button onClick={handleSignup} disabled={loading} className="w-full rounded-xl py-6 text-base font-semibold shadow-elevated">
-                <Mail className="mr-2 h-5 w-5" />{loading ? t("creating") : t("signUp")}
-              </Button>
-              <p className="text-center text-sm text-muted-foreground">
-                {t("alreadyHaveAccount")}{" "}
-                <button onClick={() => setStep("login")} className="font-medium text-primary hover:underline">{t("login")}</button>
-              </p>
-            </div>
-          )}
-
-          {step === "verify-email" && (
-            <div className="space-y-4 text-center">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10"><Mail className="h-8 w-8 text-primary" /></div>
-              <h2 className="text-lg font-bold text-foreground">{t("verifyEmail")}</h2>
-              <p className="text-sm text-muted-foreground">{t("verifyEmailDesc")} <span className="font-medium text-foreground">{email}</span></p>
-              <Button onClick={() => setStep("login")} variant="outline" className="w-full rounded-xl py-6">{t("verifyEmailAction")}</Button>
-            </div>
-          )}
 
           {step === "phone" && (
             <div className="space-y-4">
