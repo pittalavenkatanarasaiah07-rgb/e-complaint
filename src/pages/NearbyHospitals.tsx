@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import PageHeader from "@/components/PageHeader";
-import { MapPin, Clock, Navigation, Loader2, AlertCircle, Heart, Route } from "lucide-react";
+import { MapPin, Clock, Navigation, Loader2, AlertCircle, Heart, Route, Car, Bike, Footprints } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const GOOGLE_MAPS_API_KEY = "AIzaSyAY0t7mdhRjMnjvqL7T2MtnfC_u8LAW6wU";
@@ -15,16 +15,24 @@ interface Place {
   type: "hospital" | "clinic";
 }
 
+interface TravelInfo {
+  walking: string;
+  twoWheeler: string;
+  fourWheeler: string;
+}
+
 const NearbyHospitals = () => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const directionsRendererRef = useRef<any>(null);
+  const markersRef = useRef<any[]>([]);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [places, setPlaces] = useState<Place[]>([]);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [locationError, setLocationError] = useState(false);
   const [activeRoute, setActiveRoute] = useState<string | null>(null);
+  const [travelTimes, setTravelTimes] = useState<Record<string, TravelInfo>>({});
 
   useEffect(() => {
     if (!navigator.geolocation) { setLocationError(true); setLoading(false); return; }
@@ -34,6 +42,44 @@ const NearbyHospitals = () => {
       { enableHighAccuracy: true, timeout: 10000 }
     );
   }, []);
+
+  const fetchTravelTimes = useCallback((destination: Place) => {
+    const google = (window as any).google;
+    if (!userLocation || !google) return;
+    
+    const service = new google.maps.DistanceMatrixService();
+    const origin = new google.maps.LatLng(userLocation.lat, userLocation.lng);
+    const dest = new google.maps.LatLng(destination.lat, destination.lng);
+
+    const modes = [
+      { mode: google.maps.TravelMode.WALKING, key: "walking" },
+      { mode: google.maps.TravelMode.DRIVING, key: "fourWheeler" },
+    ];
+
+    const info: TravelInfo = { walking: "...", twoWheeler: "...", fourWheeler: "..." };
+
+    modes.forEach(({ mode, key }) => {
+      service.getDistanceMatrix(
+        { origins: [origin], destinations: [dest], travelMode: mode },
+        (response: any, status: string) => {
+          if (status === "OK" && response.rows[0]?.elements[0]?.status === "OK") {
+            const duration = response.rows[0].elements[0].duration.text;
+            if (key === "walking") {
+              info.walking = duration;
+            } else {
+              info.fourWheeler = duration;
+              // Estimate two-wheeler as ~80% of driving time
+              const seconds = response.rows[0].elements[0].duration.value;
+              const twoWheelerSec = Math.round(seconds * 0.8);
+              const mins = Math.round(twoWheelerSec / 60);
+              info.twoWheeler = mins < 60 ? `${mins} mins` : `${Math.floor(mins / 60)} hr ${mins % 60} mins`;
+            }
+            setTravelTimes((prev) => ({ ...prev, [destination.placeId || ""]: { ...info } }));
+          }
+        }
+      );
+    });
+  }, [userLocation]);
 
   const showRoute = useCallback((destination: Place) => {
     const google = (window as any).google;
@@ -58,21 +104,29 @@ const NearbyHospitals = () => {
         travelMode: google.maps.TravelMode.DRIVING,
       },
       (result: any, status: string) => {
-        if (status === "OK") { directionsRenderer.setDirections(result); setActiveRoute(destination.placeId || null); }
+        if (status === "OK") {
+          directionsRenderer.setDirections(result);
+          setActiveRoute(destination.placeId || null);
+          fetchTravelTimes(destination);
+        }
       }
     );
-  }, [userLocation, activeRoute]);
+  }, [userLocation, activeRoute, fetchTravelTimes]);
 
   const searchNearbyPlaces = useCallback((map: any, location: { lat: number; lng: number }) => {
     const google = (window as any).google;
     const service = new google.maps.places.PlacesService(map);
     let allResults: Place[] = [];
     let completed = 0;
-    const types = ["hospital", "doctor"] as const;
+    const searches = [
+      { type: "hospital", radius: 50000, placeType: "hospital" as const },
+      { type: "doctor", radius: 50000, placeType: "clinic" as const },
+      { type: "health", radius: 2000, placeType: "clinic" as const },
+    ];
 
-    types.forEach((type) => {
+    searches.forEach(({ type, radius, placeType }) => {
       service.nearbySearch(
-        { location: new google.maps.LatLng(location.lat, location.lng), radius: 50000, type },
+        { location: new google.maps.LatLng(location.lat, location.lng), radius, type: type as any },
         (results: any[], status: string) => {
           completed++;
           if (status === google.maps.places.PlacesServiceStatus.OK && results) {
@@ -82,24 +136,29 @@ const NearbyHospitals = () => {
               lat: place.geometry.location.lat(), lng: place.geometry.location.lng(),
               open: place.opening_hours?.isOpen?.() ?? true,
               placeId: place.place_id,
-              type: type === "hospital" ? "hospital" : "clinic",
+              type: placeType,
             }));
             allResults = [...allResults, ...found];
           }
-          if (completed === types.length) {
+          if (completed === searches.length) {
             const unique = Array.from(new Map(allResults.map((p) => [p.placeId, p])).values());
             unique.sort((a, b) => getDistanceNum(location, a) - getDistanceNum(location, b));
             setPlaces(unique);
+
+            // Clear old markers
+            markersRef.current.forEach((m) => m.setMap(null));
+            markersRef.current = [];
 
             unique.forEach((s) => {
               const marker = new google.maps.Marker({
                 position: { lat: s.lat, lng: s.lng }, map, title: s.name,
                 icon: { url: s.type === "hospital" ? "https://maps.google.com/mapfiles/ms/icons/red-dot.png" : "https://maps.google.com/mapfiles/ms/icons/pink-dot.png" },
               });
-              const infoWindow = new google.maps.InfoWindow({
-                content: `<div style="font-family:system-ui;padding:4px;"><strong>${s.name}</strong><br/><small>${s.address}</small></div>`,
+              markersRef.current.push(marker);
+              
+              marker.addListener("click", () => {
+                showRoute(s);
               });
-              marker.addListener("click", () => infoWindow.open(map, marker));
             });
 
             if (unique.length > 0) {
@@ -132,6 +191,13 @@ const NearbyHospitals = () => {
         position: userLocation, map,
         icon: { path: google.maps.SymbolPath.CIRCLE, scale: 10, fillColor: "hsl(220, 80%, 50%)", fillOpacity: 1, strokeColor: "#fff", strokeWeight: 3 },
         title: "Your Location", zIndex: 999,
+      });
+
+      // Draw 2km radius circle for clinics
+      new google.maps.Circle({
+        map, center: userLocation, radius: 2000,
+        fillColor: "hsl(0, 85%, 55%)", fillOpacity: 0.05,
+        strokeColor: "hsl(0, 85%, 55%)", strokeOpacity: 0.3, strokeWeight: 1,
       });
 
       setMapLoaded(true);
@@ -216,7 +282,11 @@ const NearbyHospitals = () => {
               <div className="space-y-3">
                 <p className="text-sm font-medium text-foreground">{places.length} hospitals & clinics found</p>
                 {places.map((place, i) => (
-                  <div key={place.placeId || i} className={`rounded-2xl border bg-card p-4 shadow-card transition-all hover:shadow-elevated ${activeRoute === place.placeId ? "border-emergency" : "border-border"}`}>
+                  <div
+                    key={place.placeId || i}
+                    className={`rounded-2xl border bg-card p-4 shadow-card transition-all hover:shadow-elevated cursor-pointer ${activeRoute === place.placeId ? "border-emergency" : "border-border"}`}
+                    onClick={() => showRoute(place)}
+                  >
                     <div className="flex items-start justify-between">
                       <div className="space-y-1 flex-1 min-w-0">
                         <div className="flex items-center gap-2">
@@ -236,18 +306,38 @@ const NearbyHospitals = () => {
                         <Clock className="h-3.5 w-3.5" />{place.open !== false ? "Open" : "Closed"}
                       </span>
                     </div>
+
+                    {/* Travel time info */}
+                    {activeRoute === place.placeId && travelTimes[place.placeId || ""] && (
+                      <div className="mt-3 grid grid-cols-3 gap-2 rounded-xl bg-muted/50 p-3">
+                        <div className="flex flex-col items-center gap-1 text-center">
+                          <Footprints className="h-4 w-4 text-primary" />
+                          <span className="text-[10px] text-muted-foreground">Walking</span>
+                          <span className="text-xs font-semibold text-foreground">{travelTimes[place.placeId || ""].walking}</span>
+                        </div>
+                        <div className="flex flex-col items-center gap-1 text-center">
+                          <Bike className="h-4 w-4 text-primary" />
+                          <span className="text-[10px] text-muted-foreground">Two Wheeler</span>
+                          <span className="text-xs font-semibold text-foreground">{travelTimes[place.placeId || ""].twoWheeler}</span>
+                        </div>
+                        <div className="flex flex-col items-center gap-1 text-center">
+                          <Car className="h-4 w-4 text-primary" />
+                          <span className="text-[10px] text-muted-foreground">Four Wheeler</span>
+                          <span className="text-xs font-semibold text-foreground">{travelTimes[place.placeId || ""].fourWheeler}</span>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="mt-2 flex items-center gap-3">
-                      <button
-                        onClick={() => showRoute(place)}
-                        className={`inline-flex items-center gap-1 text-xs font-medium hover:underline ${activeRoute === place.placeId ? "text-emergency" : "text-primary"}`}
-                      >
+                      <span className={`inline-flex items-center gap-1 text-xs font-medium ${activeRoute === place.placeId ? "text-emergency" : "text-primary"}`}>
                         <Route className="h-3 w-3" />
-                        {activeRoute === place.placeId ? "Hide Route" : "Show Route"}
-                      </button>
+                        {activeRoute === place.placeId ? "Route Shown ✓" : "Tap for Route"}
+                      </span>
                       <a
                         href={`https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}&destination_place_id=${place.placeId}`}
                         target="_blank" rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                        onClick={(e) => e.stopPropagation()}
                       >
                         <Navigation className="h-3 w-3" />Get Directions
                       </a>
