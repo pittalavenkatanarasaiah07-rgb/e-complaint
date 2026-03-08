@@ -3,6 +3,7 @@ import PageHeader from "@/components/PageHeader";
 import { MapPin, Clock, Navigation, Loader2, AlertCircle, Heart, Route, Car, Bike, Footprints, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useLanguage } from "@/hooks/useLanguage";
 
 const GOOGLE_MAPS_API_KEY = "AIzaSyAY0t7mdhRjMnjvqL7T2MtnfC_u8LAW6wU";
 
@@ -233,18 +234,20 @@ const NearbyHospitals = () => {
     p.address.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const { t } = useLanguage();
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <PageHeader title="Nearby Hospitals" subtitle="Hospitals & clinics near you" />
+      <PageHeader title={t("nearbyHospitals")} subtitle={t("hospitalsNearYou")} />
       <main className="flex-1 space-y-4 px-5 py-6">
         {locationError ? (
           <div className="flex flex-col items-center gap-4 rounded-2xl border border-border bg-card p-8 text-center">
             <AlertCircle className="h-10 w-10 text-emergency" />
             <div>
-              <h3 className="font-semibold text-foreground">Location Access Required</h3>
-              <p className="mt-1 text-sm text-muted-foreground">Enable location access to find nearby hospitals.</p>
+              <h3 className="font-semibold text-foreground">{t("locationRequired")}</h3>
+              <p className="mt-1 text-sm text-muted-foreground">{t("enableLocationHospital")}</p>
             </div>
-            <Button onClick={retryLocation} className="rounded-xl"><Navigation className="mr-2 h-4 w-4" />Try Again</Button>
+            <Button onClick={retryLocation} className="rounded-xl"><Navigation className="mr-2 h-4 w-4" />{t("tryAgain")}</Button>
           </div>
         ) : (
           <>
@@ -253,7 +256,7 @@ const NearbyHospitals = () => {
                 <div className="absolute inset-0 flex items-center justify-center z-10 bg-muted">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <Heart className="h-8 w-8 text-emergency animate-pulse" />
-                    <span className="text-sm font-medium">Detecting your location...</span>
+                    <span className="text-sm font-medium">{t("detectingLocation")}</span>
                   </div>
                 </div>
               )}
@@ -263,34 +266,34 @@ const NearbyHospitals = () => {
             {userLocation && (
               <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <MapPin className="h-3 w-3 text-primary" />
-                Your location: {userLocation.lat.toFixed(4)}, {userLocation.lng.toFixed(4)}
+                {t("yourLocation")}: {userLocation.lat.toFixed(4)}, {userLocation.lng.toFixed(4)}
               </p>
             )}
 
             {loading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-emergency" />
-                <span className="ml-2 text-sm text-muted-foreground">Finding nearby hospitals...</span>
+                <span className="ml-2 text-sm text-muted-foreground">{t("findingHospitals")}</span>
               </div>
             ) : places.length === 0 ? (
               <div className="flex flex-col items-center gap-2 py-8 text-center">
                 <Heart className="h-8 w-8 text-muted-foreground/50" />
-                <p className="text-sm text-muted-foreground">No hospitals or clinics found nearby</p>
+                <p className="text-sm text-muted-foreground">{t("noHospitalsFound")}</p>
               </div>
             ) : (
               <div className="space-y-3">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
-                    placeholder="Search hospitals & clinics..."
+                    placeholder={t("searchHospitals")}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-9 rounded-xl"
                   />
                 </div>
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold text-foreground">{filteredPlaces.length} Hospitals & Clinics Found</p>
-                  <p className="text-xs text-muted-foreground">Tap to see route</p>
+                  <p className="text-sm font-semibold text-foreground">{filteredPlaces.length} {t("hospitalsFound")}</p>
+                  <p className="text-xs text-muted-foreground">{t("tapToSeeRoute")}</p>
                 </div>
                 {filteredPlaces.map((place, i) => (
                   <div
@@ -307,7 +310,7 @@ const NearbyHospitals = () => {
                           <div className="min-w-0">
                             <h3 className="font-semibold text-foreground leading-tight">{place.name}</h3>
                             <span className={`text-[10px] font-medium ${place.type === "hospital" ? "text-destructive" : "text-primary"}`}>
-                              {place.type === "hospital" ? "Hospital" : "Clinic"}
+                              {place.type === "hospital" ? t("hospital") : t("clinic")}
                             </span>
                           </div>
                         </div>
@@ -320,11 +323,11 @@ const NearbyHospitals = () => {
 
                     <div className="mt-3 flex items-center gap-4 pl-10">
                       <span className={`flex items-center gap-1 text-xs font-medium ${place.open !== false ? "text-green-600" : "text-muted-foreground"}`}>
-                        <Clock className="h-3.5 w-3.5" />{place.open !== false ? "Open" : "Closed"}
+                        <Clock className="h-3.5 w-3.5" />{place.open !== false ? t("open") : t("closed")}
                       </span>
                       <span className={`inline-flex items-center gap-1 text-xs font-medium ${activeRoute === place.placeId ? "text-destructive" : "text-primary"}`}>
                         <Route className="h-3 w-3" />
-                        {activeRoute === place.placeId ? "Route Shown ✓" : "Tap for Route"}
+                        {activeRoute === place.placeId ? t("routeShown") : t("tapForRoute")}
                       </span>
                     </div>
 
@@ -332,17 +335,17 @@ const NearbyHospitals = () => {
                       <div className="mt-3 grid grid-cols-3 gap-2 rounded-xl bg-destructive/5 p-3 border border-destructive/10">
                         <div className="flex flex-col items-center gap-1 text-center">
                           <Footprints className="h-5 w-5 text-destructive" />
-                          <span className="text-[10px] text-muted-foreground">Walking</span>
+                          <span className="text-[10px] text-muted-foreground">{t("walking")}</span>
                           <span className="text-xs font-bold text-foreground">{travelTimes[place.placeId || ""].walking}</span>
                         </div>
                         <div className="flex flex-col items-center gap-1 text-center">
                           <Bike className="h-5 w-5 text-destructive" />
-                          <span className="text-[10px] text-muted-foreground">Two Wheeler</span>
+                          <span className="text-[10px] text-muted-foreground">{t("twoWheeler")}</span>
                           <span className="text-xs font-bold text-foreground">{travelTimes[place.placeId || ""].twoWheeler}</span>
                         </div>
                         <div className="flex flex-col items-center gap-1 text-center">
                           <Car className="h-5 w-5 text-destructive" />
-                          <span className="text-[10px] text-muted-foreground">Four Wheeler</span>
+                          <span className="text-[10px] text-muted-foreground">{t("fourWheeler")}</span>
                           <span className="text-xs font-bold text-foreground">{travelTimes[place.placeId || ""].fourWheeler}</span>
                         </div>
                       </div>
@@ -356,7 +359,7 @@ const NearbyHospitals = () => {
                           className="inline-flex items-center gap-1 rounded-lg bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground hover:bg-destructive/90"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <Navigation className="h-3 w-3" />Open in Google Maps
+                          <Navigation className="h-3 w-3" />{t("openInGoogleMaps")}
                         </a>
                       </div>
                     )}
