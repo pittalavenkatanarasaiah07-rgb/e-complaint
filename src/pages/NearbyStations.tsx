@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import PageHeader from "@/components/PageHeader";
-import { MapPin, Clock, Navigation, Loader2, AlertCircle, Route, Car, Bike, Footprints } from "lucide-react";
+import { MapPin, Clock, Navigation, Loader2, AlertCircle, Route, Car, Bike, Footprints, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 const GOOGLE_MAPS_API_KEY = "AIzaSyAY0t7mdhRjMnjvqL7T2MtnfC_u8LAW6wU";
 
@@ -34,6 +35,7 @@ const NearbyStations = () => {
   const [locationError, setLocationError] = useState(false);
   const [activeRoute, setActiveRoute] = useState<string | null>(null);
   const [travelTimes, setTravelTimes] = useState<Record<string, TravelInfo>>({});
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     if (!navigator.geolocation) { setLocationError(true); setLoading(false); return; }
@@ -285,11 +287,20 @@ const NearbyStations = () => {
               </div>
             ) : (
               <div className="space-y-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Search police stations..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9 rounded-xl"
+                  />
+                </div>
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold text-foreground">{stations.length} Police Stations Found</p>
+                  <p className="text-sm font-semibold text-foreground">{stations.filter((s) => s.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.address.toLowerCase().includes(searchQuery.toLowerCase())).length} Police Stations Found</p>
                   <p className="text-xs text-muted-foreground">Tap to see route</p>
                 </div>
-                {stations.map((station, i) => (
+                {stations.filter((s) => s.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.address.toLowerCase().includes(searchQuery.toLowerCase())).map((station, i) => (
                   <div
                     key={station.placeId || i}
                     className={`rounded-2xl border bg-card p-4 shadow-card transition-all hover:shadow-elevated cursor-pointer ${activeRoute === station.placeId ? "border-primary ring-2 ring-primary/20" : "border-border"}`}
