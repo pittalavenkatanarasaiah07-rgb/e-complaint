@@ -80,13 +80,40 @@ const Auth = () => {
           {step === "phone" && (
             <div className="space-y-4">
               <div className="space-y-1 text-center">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10"><Phone className="h-8 w-8 text-primary" /></div>
-                <h2 className="text-lg font-bold text-foreground">{t("verifyPhone")}</h2>
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+                  <Phone className="h-8 w-8 text-primary" />
+                </div>
+                <h2 className="text-lg font-bold text-foreground">{t("createAccount")}</h2>
                 <p className="text-sm text-muted-foreground">{t("verifyPhoneDesc")}</p>
               </div>
-              <div className="space-y-1.5"><Label>{t("phoneNumber")}</Label><Input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+91 XXXXX XXXXX" className="rounded-xl" /></div>
-              <Button onClick={handleSendPhoneOtp} disabled={loading} className="w-full rounded-xl py-6 text-base font-semibold shadow-elevated">{loading ? t("sendingOtp") : t("sendOtp")}</Button>
-              <button onClick={() => navigate("/")} className="w-full text-center text-sm text-muted-foreground hover:text-foreground">{t("skipForNow")}</button>
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label>{t("fullName")}</Label>
+                  <Input 
+                    value={fullName} 
+                    onChange={(e) => setFullName(e.target.value)} 
+                    placeholder={t("fullNamePlaceholder")} 
+                    className="rounded-xl" 
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>{t("phoneNumber")}</Label>
+                  <Input 
+                    type="tel" 
+                    value={phone} 
+                    onChange={(e) => setPhone(e.target.value)} 
+                    placeholder="+91 XXXXX XXXXX" 
+                    className="rounded-xl" 
+                  />
+                </div>
+              </div>
+              <Button 
+                onClick={handleSendPhoneOtp} 
+                disabled={loading} 
+                className="w-full rounded-xl py-6 text-base font-semibold shadow-elevated"
+              >
+                {loading ? t("sendingOtp") : t("sendOtp")}
+              </Button>
             </div>
           )}
 
