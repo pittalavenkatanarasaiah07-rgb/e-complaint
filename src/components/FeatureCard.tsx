@@ -1,17 +1,20 @@
 import { type LucideIcon } from "lucide-react";
+import { Link } from "react-router-dom";
 
 interface FeatureCardProps {
   icon: LucideIcon;
   title: string;
   description: string;
   variant?: "default" | "emergency";
+  to: string;
 }
 
-const FeatureCard = ({ icon: Icon, title, description, variant = "default" }: FeatureCardProps) => {
+const FeatureCard = ({ icon: Icon, title, description, variant = "default", to }: FeatureCardProps) => {
   const isEmergency = variant === "emergency";
 
   return (
-    <button
+    <Link
+      to={to}
       className={`group flex w-full items-center gap-4 rounded-2xl border p-5 text-left transition-all hover:shadow-elevated ${
         isEmergency
           ? "border-emergency/20 bg-emergency/5 hover:border-emergency/40"
@@ -31,7 +34,7 @@ const FeatureCard = ({ icon: Icon, title, description, variant = "default" }: Fe
         <h3 className="font-semibold text-foreground">{title}</h3>
         <p className="text-sm text-muted-foreground">{description}</p>
       </div>
-    </button>
+    </Link>
   );
 };
 

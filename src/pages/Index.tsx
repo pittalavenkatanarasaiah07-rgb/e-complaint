@@ -1,4 +1,5 @@
 import { FileText, AlertTriangle, MapPin, Phone } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import FeatureCard from "@/components/FeatureCard";
@@ -41,30 +42,34 @@ const Index = () => {
               icon={FileText}
               title="File Complaint"
               description="Report an incident"
+              to="/file-complaint"
             />
             <FeatureCard
               icon={AlertTriangle}
               title="SOS Emergency"
               description="Instant alert"
               variant="emergency"
+              to="/sos-emergency"
             />
             <FeatureCard
               icon={MapPin}
               title="Nearby Stations"
               description="Find police help"
+              to="/nearby-stations"
             />
             <FeatureCard
               icon={Phone}
               title="Emergency Call"
               description="Quick dial"
               variant="emergency"
+              to="/sos-emergency"
             />
           </div>
 
           {/* CTA */}
           <div className="space-y-3 pt-2">
-            <Button className="w-full rounded-xl py-6 text-base font-semibold shadow-elevated">
-              Get Started
+            <Button asChild className="w-full rounded-xl py-6 text-base font-semibold shadow-elevated">
+              <Link to="/file-complaint">Get Started</Link>
             </Button>
             <p className="text-center text-sm text-muted-foreground">
               Already have an account?{" "}
@@ -75,14 +80,14 @@ const Index = () => {
           </div>
 
           {/* SOS floating button */}
-          <div className="fixed bottom-8 right-8">
+          <Link to="/sos-emergency" className="fixed bottom-8 right-8">
             <div className="relative">
               <div className="absolute inset-0 animate-pulse-ring rounded-full bg-emergency" />
-              <button className="relative flex h-16 w-16 items-center justify-center rounded-full bg-emergency text-emergency-foreground shadow-elevated transition-transform hover:scale-105 active:scale-95">
+              <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-emergency text-emergency-foreground shadow-elevated transition-transform hover:scale-105 active:scale-95">
                 <span className="text-xs font-bold leading-tight">SOS</span>
-              </button>
+              </div>
             </div>
-          </div>
+          </Link>
         </div>
       </main>
     </div>
