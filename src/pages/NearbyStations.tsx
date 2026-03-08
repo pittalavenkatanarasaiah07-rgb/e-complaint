@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import PageHeader from "@/components/PageHeader";
-import { MapPin, Phone, Clock, Navigation, Loader2, AlertCircle, Route } from "lucide-react";
+import { MapPin, Clock, Navigation, Loader2, AlertCircle, Route, Car, Bike, Footprints } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const GOOGLE_MAPS_API_KEY = "AIzaSyAY0t7mdhRjMnjvqL7T2MtnfC_u8LAW6wU";
@@ -15,16 +15,24 @@ interface Station {
   placeId?: string;
 }
 
+interface TravelInfo {
+  walking: string;
+  twoWheeler: string;
+  fourWheeler: string;
+}
+
 const NearbyStations = () => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const directionsRendererRef = useRef<any>(null);
+  const markersRef = useRef<any[]>([]);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [stations, setStations] = useState<Station[]>([]);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [locationError, setLocationError] = useState(false);
   const [activeRoute, setActiveRoute] = useState<string | null>(null);
+  const [travelTimes, setTravelTimes] = useState<Record<string, TravelInfo>>({});
 
   useEffect(() => {
     if (!navigator.geolocation) { setLocationError(true); setLoading(false); return; }
@@ -35,25 +43,55 @@ const NearbyStations = () => {
     );
   }, []);
 
+  const fetchTravelTimes = useCallback((destination: Station) => {
+    const google = (window as any).google;
+    if (!userLocation || !google) return;
+
+    const service = new google.maps.DistanceMatrixService();
+    const origin = new google.maps.LatLng(userLocation.lat, userLocation.lng);
+    const dest = new google.maps.LatLng(destination.lat, destination.lng);
+
+    const modes = [
+      { mode: google.maps.TravelMode.WALKING, key: "walking" },
+      { mode: google.maps.TravelMode.DRIVING, key: "fourWheeler" },
+    ];
+
+    const info: TravelInfo = { walking: "...", twoWheeler: "...", fourWheeler: "..." };
+
+    modes.forEach(({ mode, key }) => {
+      service.getDistanceMatrix(
+        { origins: [origin], destinations: [dest], travelMode: mode },
+        (response: any, status: string) => {
+          if (status === "OK" && response.rows[0]?.elements[0]?.status === "OK") {
+            const duration = response.rows[0].elements[0].duration.text;
+            if (key === "walking") {
+              info.walking = duration;
+            } else {
+              info.fourWheeler = duration;
+              const seconds = response.rows[0].elements[0].duration.value;
+              const twoWheelerSec = Math.round(seconds * 0.8);
+              const mins = Math.round(twoWheelerSec / 60);
+              info.twoWheeler = mins < 60 ? `${mins} mins` : `${Math.floor(mins / 60)} hr ${mins % 60} mins`;
+            }
+            setTravelTimes((prev) => ({ ...prev, [destination.placeId || ""]: { ...info } }));
+          }
+        }
+      );
+    });
+  }, [userLocation]);
+
   const showRoute = useCallback((destination: Station) => {
     const google = (window as any).google;
     const map = mapInstanceRef.current;
     if (!map || !userLocation) return;
 
-    // Clear previous route
-    if (directionsRendererRef.current) {
-      directionsRendererRef.current.setMap(null);
-    }
+    if (directionsRendererRef.current) directionsRendererRef.current.setMap(null);
 
-    if (activeRoute === destination.placeId) {
-      setActiveRoute(null);
-      return;
-    }
+    if (activeRoute === destination.placeId) { setActiveRoute(null); return; }
 
     const directionsService = new google.maps.DirectionsService();
     const directionsRenderer = new google.maps.DirectionsRenderer({
-      map,
-      suppressMarkers: true,
+      map, suppressMarkers: true,
       polylineOptions: { strokeColor: "hsl(220, 80%, 50%)", strokeWeight: 5, strokeOpacity: 0.8 },
     });
     directionsRendererRef.current = directionsRenderer;
@@ -68,10 +106,11 @@ const NearbyStations = () => {
         if (status === "OK") {
           directionsRenderer.setDirections(result);
           setActiveRoute(destination.placeId || null);
+          fetchTravelTimes(destination);
         }
       }
     );
-  }, [userLocation, activeRoute]);
+  }, [userLocation, activeRoute, fetchTravelTimes]);
 
   const searchNearbyStations = useCallback((map: any, location: { lat: number; lng: number }) => {
     const google = (window as any).google;
@@ -92,15 +131,19 @@ const NearbyStations = () => {
           found.sort((a, b) => getDistanceNum(location, a) - getDistanceNum(location, b));
           setStations(found);
 
+          markersRef.current.forEach((m) => m.setMap(null));
+          markersRef.current = [];
+
           found.forEach((s) => {
             const marker = new google.maps.Marker({
               position: { lat: s.lat, lng: s.lng }, map, title: s.name,
               icon: { url: "https://maps.google.com/mapfiles/ms/icons/blue-dot.png" },
             });
-            const infoWindow = new google.maps.InfoWindow({
-              content: `<div style="font-family:system-ui;padding:4px;"><strong>${s.name}</strong><br/><small>${s.address}</small></div>`,
+            markersRef.current.push(marker);
+
+            marker.addListener("click", () => {
+              showRoute(s);
             });
-            marker.addListener("click", () => infoWindow.open(map, marker));
           });
 
           if (found.length > 0) {
@@ -120,14 +163,11 @@ const NearbyStations = () => {
     const loadAndInit = () => {
       const google = (window as any).google;
       const map = new google.maps.Map(mapRef.current, {
-        center: userLocation,
-        zoom: 13,
+        center: userLocation, zoom: 13,
         mapTypeId: google.maps.MapTypeId.HYBRID,
         mapTypeControl: true,
         mapTypeControlOptions: { style: google.maps.MapTypeControlStyle.HORIZONTAL_BAR, position: google.maps.ControlPosition.TOP_RIGHT },
-        zoomControl: true,
-        streetViewControl: false,
-        fullscreenControl: true,
+        zoomControl: true, streetViewControl: false, fullscreenControl: true,
       });
       mapInstanceRef.current = map;
 
@@ -137,6 +177,13 @@ const NearbyStations = () => {
         title: "Your Location", zIndex: 999,
       });
 
+      // Draw 2km radius circle
+      new google.maps.Circle({
+        map, center: userLocation, radius: 2000,
+        fillColor: "hsl(220, 80%, 50%)", fillOpacity: 0.05,
+        strokeColor: "hsl(220, 80%, 50%)", strokeOpacity: 0.3, strokeWeight: 1,
+      });
+
       setMapLoaded(true);
       searchNearbyStations(map, userLocation);
     };
@@ -144,12 +191,9 @@ const NearbyStations = () => {
     if (!(window as any).google?.maps?.places) {
       const script = document.createElement("script");
       script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places`;
-      script.async = true;
-      script.onload = loadAndInit;
+      script.async = true; script.onload = loadAndInit;
       document.head.appendChild(script);
-    } else {
-      loadAndInit();
-    }
+    } else { loadAndInit(); }
   }, [userLocation, searchNearbyStations]);
 
   const getDistanceNum = (from: { lat: number; lng: number }, to: { lat: number; lng: number }) => {
@@ -222,7 +266,11 @@ const NearbyStations = () => {
               <div className="space-y-3">
                 <p className="text-sm font-medium text-foreground">{stations.length} stations found</p>
                 {stations.map((station, i) => (
-                  <div key={station.placeId || i} className={`rounded-2xl border bg-card p-4 shadow-card transition-all hover:shadow-elevated ${activeRoute === station.placeId ? "border-primary" : "border-border"}`}>
+                  <div
+                    key={station.placeId || i}
+                    className={`rounded-2xl border bg-card p-4 shadow-card transition-all hover:shadow-elevated cursor-pointer ${activeRoute === station.placeId ? "border-primary" : "border-border"}`}
+                    onClick={() => showRoute(station)}
+                  >
                     <div className="flex items-start justify-between">
                       <div className="space-y-1 flex-1 min-w-0">
                         <h3 className="font-semibold text-foreground">{station.name}</h3>
@@ -238,18 +286,38 @@ const NearbyStations = () => {
                         <Clock className="h-3.5 w-3.5" />{station.open !== false ? "Open" : "Closed"}
                       </span>
                     </div>
+
+                    {/* Travel time info */}
+                    {activeRoute === station.placeId && travelTimes[station.placeId || ""] && (
+                      <div className="mt-3 grid grid-cols-3 gap-2 rounded-xl bg-muted/50 p-3">
+                        <div className="flex flex-col items-center gap-1 text-center">
+                          <Footprints className="h-4 w-4 text-primary" />
+                          <span className="text-[10px] text-muted-foreground">Walking</span>
+                          <span className="text-xs font-semibold text-foreground">{travelTimes[station.placeId || ""].walking}</span>
+                        </div>
+                        <div className="flex flex-col items-center gap-1 text-center">
+                          <Bike className="h-4 w-4 text-primary" />
+                          <span className="text-[10px] text-muted-foreground">Two Wheeler</span>
+                          <span className="text-xs font-semibold text-foreground">{travelTimes[station.placeId || ""].twoWheeler}</span>
+                        </div>
+                        <div className="flex flex-col items-center gap-1 text-center">
+                          <Car className="h-4 w-4 text-primary" />
+                          <span className="text-[10px] text-muted-foreground">Four Wheeler</span>
+                          <span className="text-xs font-semibold text-foreground">{travelTimes[station.placeId || ""].fourWheeler}</span>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="mt-2 flex items-center gap-3">
-                      <button
-                        onClick={() => showRoute(station)}
-                        className={`inline-flex items-center gap-1 text-xs font-medium hover:underline ${activeRoute === station.placeId ? "text-emergency" : "text-primary"}`}
-                      >
+                      <span className={`inline-flex items-center gap-1 text-xs font-medium ${activeRoute === station.placeId ? "text-emergency" : "text-primary"}`}>
                         <Route className="h-3 w-3" />
-                        {activeRoute === station.placeId ? "Hide Route" : "Show Route"}
-                      </button>
+                        {activeRoute === station.placeId ? "Route Shown ✓" : "Tap for Route"}
+                      </span>
                       <a
                         href={`https://www.google.com/maps/dir/?api=1&destination=${station.lat},${station.lng}&destination_place_id=${station.placeId}`}
                         target="_blank" rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                        onClick={(e) => e.stopPropagation()}
                       >
                         <Navigation className="h-3 w-3" />Get Directions
                       </a>
