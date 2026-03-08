@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import PageHeader from "@/components/PageHeader";
-import { MapPin, Clock, Navigation, Loader2, AlertCircle, Route, Car, Bike, Footprints } from "lucide-react";
+import { MapPin, Clock, Navigation, Loader2, AlertCircle, Route, Car, Bike, Footprints, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 const GOOGLE_MAPS_API_KEY = "AIzaSyAY0t7mdhRjMnjvqL7T2MtnfC_u8LAW6wU";
 
