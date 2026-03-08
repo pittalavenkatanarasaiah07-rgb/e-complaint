@@ -6,52 +6,59 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import shieldIcon from "@/assets/shield-icon.png";
-import { ArrowLeft, Mail, Phone, Shield } from "lucide-react";
+import { ArrowLeft, Phone, Shield } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 
-type Step = "signup" | "verify-email" | "phone" | "verify-phone" | "login";
+type Step = "phone" | "verify-phone";
 
 const Auth = () => {
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const [step, setStep] = useState<Step>("signup");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [step, setStep] = useState<Step>("phone");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSignup = async () => {
-    if (!email || !password || !fullName) { toast.error("Please fill all fields"); return; }
-    setLoading(true);
-    const { error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: fullName }, emailRedirectTo: window.location.origin } });
-    setLoading(false);
-    if (error) { toast.error(error.message); } else { toast.success("Check your email for verification link!"); setStep("verify-email"); }
-  };
-
-  const handleLogin = async () => {
-    if (!email || !password) { toast.error("Please fill all fields"); return; }
-    setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (error) { toast.error(error.message); } else { toast.success("Welcome back!"); navigate("/"); }
-  };
-
   const handleSendPhoneOtp = async () => {
-    if (!phone) { toast.error("Enter your phone number"); return; }
+    if (!phone || !fullName) {
+      toast.error("Please fill all fields");
+      return;
+    }
     setLoading(true);
-    const { error } = await supabase.auth.updateUser({ phone });
+    const { error } = await supabase.auth.signInWithOtp({
+      phone,
+      options: {
+        data: { full_name: fullName }
+      }
+    });
     setLoading(false);
-    if (error) { toast.error(error.message); } else { toast.success("OTP sent to your phone!"); setStep("verify-phone"); }
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("OTP sent to your phone!");
+      setStep("verify-phone");
+    }
   };
 
   const handleVerifyPhoneOtp = async () => {
-    if (!otp) { toast.error("Enter the OTP"); return; }
+    if (!otp) {
+      toast.error("Enter the OTP");
+      return;
+    }
     setLoading(true);
-    const { error } = await supabase.auth.verifyOtp({ phone, token: otp, type: "phone_change" });
+    const { error } = await supabase.auth.verifyOtp({
+      phone,
+      token: otp,
+      type: "sms"
+    });
     setLoading(false);
-    if (error) { toast.error(error.message); } else { toast.success("Phone verified! You're all set."); navigate("/"); }
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("Phone verified! You're all set.");
+      navigate("/");
+    }
   };
 
   return (
