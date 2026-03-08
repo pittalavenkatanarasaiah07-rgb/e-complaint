@@ -1,56 +1,125 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import PageHeader from "@/components/PageHeader";
-import { MapPin, Phone, Clock, Navigation } from "lucide-react";
+import { MapPin, Phone, Clock, Navigation, Loader2, AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const GOOGLE_MAPS_API_KEY = "AIzaSyAY0t7mdhRjMnjvqL7T2MtnfC_u8LAW6wU";
 
-const stations = [
-  { name: "Cyberabad Police Station", address: "Madhapur, Hyderabad, 500081", lat: 17.4486, lng: 78.3908, phone: "040-27855000", open: true },
-  { name: "Gachibowli Police Station", address: "Gachibowli, Hyderabad, 500032", lat: 17.4401, lng: 78.3489, phone: "040-27855100", open: true },
-  { name: "Miyapur Police Station", address: "Miyapur, Hyderabad, 500049", lat: 17.4969, lng: 78.3548, phone: "040-27855200", open: true },
-  { name: "Kondapur Police Station", address: "Kondapur, Hyderabad, 500084", lat: 17.4577, lng: 78.3641, phone: "040-27855300", open: false },
-];
+interface Station {
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+  phone?: string;
+  open?: boolean;
+  placeId?: string;
+}
 
 const NearbyStations = () => {
   const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<any>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [stations, setStations] = useState<Station[]>([]);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [locationError, setLocationError] = useState(false);
 
+  // Get user's live location
   useEffect(() => {
-    navigator.geolocation?.getCurrentPosition(
-      (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => setUserLocation({ lat: 17.4486, lng: 78.3908 }) // fallback to Hyderabad
+    if (!navigator.geolocation) {
+      setLocationError(true);
+      setLoading(false);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      },
+      () => {
+        setLocationError(true);
+        setLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
     );
   }, []);
 
+  // Search for nearby police stations using Places API
+  const searchNearbyStations = useCallback((map: any, location: { lat: number; lng: number }) => {
+    const google = (window as any).google;
+    const service = new google.maps.places.PlacesService(map);
+
+    const request = {
+      location: new google.maps.LatLng(location.lat, location.lng),
+      radius: 10000, // 10km radius
+      type: "police",
+    };
+
+    service.nearbySearch(request, (results: any[], status: string) => {
+      if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+        const found: Station[] = results.map((place: any) => ({
+          name: place.name,
+          address: place.vicinity || place.formatted_address || "Address not available",
+          lat: place.geometry.location.lat(),
+          lng: place.geometry.location.lng(),
+          open: place.opening_hours?.isOpen?.() ?? true,
+          placeId: place.place_id,
+        }));
+
+        // Sort by distance
+        found.sort((a, b) => {
+          const dA = getDistanceNum(location, a);
+          const dB = getDistanceNum(location, b);
+          return dA - dB;
+        });
+
+        setStations(found);
+
+        // Add markers for each station
+        found.forEach((s) => {
+          const marker = new google.maps.Marker({
+            position: { lat: s.lat, lng: s.lng },
+            map,
+            title: s.name,
+            icon: {
+              url: "https://maps.google.com/mapfiles/ms/icons/blue-dot.png",
+            },
+          });
+          const infoWindow = new google.maps.InfoWindow({
+            content: `<div style="font-family:system-ui;padding:4px;"><strong>${s.name}</strong><br/><small>${s.address}</small></div>`,
+          });
+          marker.addListener("click", () => infoWindow.open(map, marker));
+        });
+
+        // Fit bounds to show all markers
+        if (found.length > 0) {
+          const bounds = new google.maps.LatLngBounds();
+          bounds.extend(new google.maps.LatLng(location.lat, location.lng));
+          found.forEach((s) => bounds.extend(new google.maps.LatLng(s.lat, s.lng)));
+          map.fitBounds(bounds, 50);
+        }
+      }
+      setLoading(false);
+    });
+  }, []);
+
+  // Initialize map
   useEffect(() => {
     if (!userLocation || !mapRef.current) return;
 
-    // Load Google Maps script
-    if (!(window as any).google?.maps) {
-      const script = document.createElement("script");
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}`;
-      script.async = true;
-      script.onload = () => initMap();
-      document.head.appendChild(script);
-    } else {
-      initMap();
-    }
-
-    function initMap() {
-      if (!mapRef.current || !userLocation) return;
+    const loadAndInit = () => {
       const google = (window as any).google;
       const map = new google.maps.Map(mapRef.current, {
         center: userLocation,
-        zoom: 13,
+        zoom: 14,
         disableDefaultUI: true,
         zoomControl: true,
         styles: [
-          { featureType: "poi", stylers: [{ visibility: "off" }] },
+          { featureType: "poi.business", stylers: [{ visibility: "off" }] },
         ],
       });
+      mapInstanceRef.current = map;
 
-      // User marker
+      // User location marker (blue pulsing dot)
       new google.maps.Marker({
         position: userLocation,
         map,
@@ -62,38 +131,51 @@ const NearbyStations = () => {
           strokeColor: "#fff",
           strokeWeight: 3,
         },
-        title: "You",
-      });
-
-      // Station markers
-      stations.forEach((s) => {
-        const marker = new google.maps.Marker({
-          position: { lat: s.lat, lng: s.lng },
-          map,
-          title: s.name,
-        });
-        const infoWindow = new google.maps.InfoWindow({
-          content: `<div style="font-family:system-ui;"><strong>${s.name}</strong><br/><small>${s.address}</small><br/><a href="tel:${s.phone}">${s.phone}</a></div>`,
-        });
-        marker.addListener("click", () => infoWindow.open(map, marker));
+        title: "Your Location",
+        zIndex: 999,
       });
 
       setMapLoaded(true);
-    }
-  }, [userLocation]);
+      searchNearbyStations(map, userLocation);
+    };
 
-  const getDistance = (s: typeof stations[0]) => {
-    if (!userLocation) return "—";
+    if (!(window as any).google?.maps?.places) {
+      const script = document.createElement("script");
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places`;
+      script.async = true;
+      script.onload = loadAndInit;
+      document.head.appendChild(script);
+    } else {
+      loadAndInit();
+    }
+  }, [userLocation, searchNearbyStations]);
+
+  const getDistanceNum = (from: { lat: number; lng: number }, to: { lat: number; lng: number }) => {
     const R = 6371;
-    const dLat = ((s.lat - userLocation.lat) * Math.PI) / 180;
-    const dLng = ((s.lng - userLocation.lng) * Math.PI) / 180;
+    const dLat = ((to.lat - from.lat) * Math.PI) / 180;
+    const dLng = ((to.lng - from.lng) * Math.PI) / 180;
     const a =
       Math.sin(dLat / 2) ** 2 +
-      Math.cos((userLocation.lat * Math.PI) / 180) *
-        Math.cos((s.lat * Math.PI) / 180) *
+      Math.cos((from.lat * Math.PI) / 180) *
+        Math.cos((to.lat * Math.PI) / 180) *
         Math.sin(dLng / 2) ** 2;
-    const d = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  };
+
+  const getDistance = (s: Station) => {
+    if (!userLocation) return "—";
+    const d = getDistanceNum(userLocation, s);
     return `${d.toFixed(1)} km`;
+  };
+
+  const retryLocation = () => {
+    setLocationError(false);
+    setLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => { setLocationError(true); setLoading(false); },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
   };
 
   return (
@@ -101,64 +183,95 @@ const NearbyStations = () => {
       <PageHeader title="Nearby Stations" subtitle="Police stations near you" />
 
       <main className="flex-1 space-y-4 px-5 py-6">
-        {/* Google Map */}
-        <div className="relative h-56 rounded-2xl border border-border overflow-hidden bg-muted">
-          {!mapLoaded && (
-            <div className="absolute inset-0 flex items-center justify-center z-10">
-              <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                <Navigation className="h-8 w-8 text-primary animate-pulse" />
-                <span className="text-sm font-medium">Loading map...</span>
-              </div>
+        {locationError ? (
+          <div className="flex flex-col items-center gap-4 rounded-2xl border border-border bg-card p-8 text-center">
+            <AlertCircle className="h-10 w-10 text-emergency" />
+            <div>
+              <h3 className="font-semibold text-foreground">Location Access Required</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Please enable location access in your browser to find nearby police stations.
+              </p>
             </div>
-          )}
-          <div ref={mapRef} className="h-full w-full" />
-        </div>
-
-        {/* Station list */}
-        <div className="space-y-3">
-          {stations.map((station) => (
-            <div
-              key={station.name}
-              className="rounded-2xl border border-border bg-card p-4 shadow-card transition-all hover:shadow-elevated"
-            >
-              <div className="flex items-start justify-between">
-                <div className="space-y-1">
-                  <h3 className="font-semibold text-foreground">{station.name}</h3>
-                  <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <MapPin className="h-3 w-3" />
-                    {station.address}
-                  </p>
+            <Button onClick={retryLocation} className="rounded-xl">
+              <Navigation className="mr-2 h-4 w-4" />
+              Try Again
+            </Button>
+          </div>
+        ) : (
+          <>
+            {/* Google Map */}
+            <div className="relative h-56 rounded-2xl border border-border overflow-hidden bg-muted">
+              {!mapLoaded && (
+                <div className="absolute inset-0 flex items-center justify-center z-10">
+                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                    <Navigation className="h-8 w-8 text-primary animate-pulse" />
+                    <span className="text-sm font-medium">Detecting your location...</span>
+                  </div>
                 </div>
-                <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
-                  {getDistance(station)}
-                </span>
-              </div>
-
-              <div className="mt-3 flex items-center gap-4">
-                <a
-                  href={`tel:${station.phone}`}
-                  className="flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
-                >
-                  <Phone className="h-3.5 w-3.5" />
-                  {station.phone}
-                </a>
-                <span className={`flex items-center gap-1 text-xs font-medium ${station.open ? "text-success" : "text-muted-foreground"}`}>
-                  <Clock className="h-3.5 w-3.5" />
-                  {station.open ? "Open 24/7" : "Closed"}
-                </span>
-              </div>
-              <a
-                href={`https://www.google.com/maps/dir/?api=1&destination=${station.lat},${station.lng}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-              >
-                <Navigation className="h-3 w-3" />
-                Get Directions
-              </a>
+              )}
+              <div ref={mapRef} className="h-full w-full" />
             </div>
-          ))}
-        </div>
+
+            {userLocation && (
+              <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <MapPin className="h-3 w-3 text-primary" />
+                Your location: {userLocation.lat.toFixed(4)}, {userLocation.lng.toFixed(4)}
+              </p>
+            )}
+
+            {/* Station list */}
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                <span className="ml-2 text-sm text-muted-foreground">Finding nearby stations...</span>
+              </div>
+            ) : stations.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 py-8 text-center">
+                <MapPin className="h-8 w-8 text-muted-foreground/50" />
+                <p className="text-sm text-muted-foreground">No police stations found nearby</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-foreground">{stations.length} stations found</p>
+                {stations.map((station, i) => (
+                  <div
+                    key={station.placeId || i}
+                    className="rounded-2xl border border-border bg-card p-4 shadow-card transition-all hover:shadow-elevated"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1 flex-1 min-w-0">
+                        <h3 className="font-semibold text-foreground">{station.name}</h3>
+                        <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <MapPin className="h-3 w-3 shrink-0" />
+                          <span className="truncate">{station.address}</span>
+                        </p>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary ml-2">
+                        {getDistance(station)}
+                      </span>
+                    </div>
+
+                    <div className="mt-3 flex items-center gap-4">
+                      <span className={`flex items-center gap-1 text-xs font-medium ${station.open !== false ? "text-success" : "text-muted-foreground"}`}>
+                        <Clock className="h-3.5 w-3.5" />
+                        {station.open !== false ? "Open" : "Closed"}
+                      </span>
+                    </div>
+                    <a
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${station.lat},${station.lng}&destination_place_id=${station.placeId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                    >
+                      <Navigation className="h-3 w-3" />
+                      Get Directions
+                    </a>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </main>
     </div>
   );
