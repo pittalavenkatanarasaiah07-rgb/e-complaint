@@ -37,6 +37,8 @@ const NearbyStations = () => {
   const [activeRoute, setActiveRoute] = useState<string | null>(null);
   const [travelTimes, setTravelTimes] = useState<Record<string, TravelInfo>>({});
   const [searchQuery, setSearchQuery] = useState("");
+  const [routeSteps, setRouteSteps] = useState<Record<string, { instruction: string; distance: string; duration: string }[]>>({});
+  const [showSteps, setShowSteps] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!navigator.geolocation) { setLocationError(true); setLoading(false); return; }
