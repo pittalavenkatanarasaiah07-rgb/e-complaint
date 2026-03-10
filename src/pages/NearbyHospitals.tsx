@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import PageHeader from "@/components/PageHeader";
-import { MapPin, Clock, Navigation, Loader2, AlertCircle, Heart, Route, Car, Bike, Footprints, Search } from "lucide-react";
+import { MapPin, Clock, Navigation, Loader2, AlertCircle, Heart, Route, Car, Bike, Footprints, Search, ChevronDown, ChevronUp, CornerDownRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -37,6 +37,8 @@ const NearbyHospitals = () => {
   const [activeRoute, setActiveRoute] = useState<string | null>(null);
   const [travelTimes, setTravelTimes] = useState<Record<string, TravelInfo>>({});
   const [searchQuery, setSearchQuery] = useState("");
+  const [routeSteps, setRouteSteps] = useState<Record<string, { instruction: string; distance: string; duration: string }[]>>({});
+  const [showSteps, setShowSteps] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!navigator.geolocation) { setLocationError(true); setLoading(false); return; }
@@ -115,6 +117,16 @@ const NearbyHospitals = () => {
           if (status === "OK") {
             directionsRenderer.setDirections(result);
             fetchTravelTimes(destination);
+            const legs = result.routes[0]?.legs;
+            if (legs && legs.length > 0) {
+              const steps = legs[0].steps.map((step: any) => ({
+                instruction: step.instructions,
+                distance: step.distance?.text || "",
+                duration: step.duration?.text || "",
+              }));
+              setRouteSteps((prev) => ({ ...prev, [destination.placeId || ""]: steps }));
+              setShowSteps((prev) => ({ ...prev, [destination.placeId || ""]: true }));
+            }
             const bounds = new google.maps.LatLngBounds();
             bounds.extend(new google.maps.LatLng(userLocation.lat, userLocation.lng));
             bounds.extend(new google.maps.LatLng(destination.lat, destination.lng));
@@ -348,6 +360,39 @@ const NearbyHospitals = () => {
                           <span className="text-[10px] text-muted-foreground">{t("fourWheeler")}</span>
                           <span className="text-xs font-bold text-foreground">{travelTimes[place.placeId || ""].fourWheeler}</span>
                         </div>
+                      </div>
+                    )}
+
+                    {activeRoute === place.placeId && routeSteps[place.placeId || ""] && (
+                      <div className="mt-3">
+                        <button
+                          className="flex w-full items-center justify-between rounded-lg bg-destructive/5 px-3 py-2 text-xs font-semibold text-destructive hover:bg-destructive/10 transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowSteps((prev) => ({ ...prev, [place.placeId || ""]: !prev[place.placeId || ""] }));
+                          }}
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <CornerDownRight className="h-3.5 w-3.5" />
+                            Turn-by-turn directions ({routeSteps[place.placeId || ""].length} steps)
+                          </span>
+                          {showSteps[place.placeId || ""] ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        </button>
+                        {showSteps[place.placeId || ""] && (
+                          <div className="mt-2 max-h-60 overflow-y-auto space-y-1.5 rounded-xl border border-border bg-card p-3">
+                            {routeSteps[place.placeId || ""].map((step, idx) => (
+                              <div key={idx} className="flex gap-3 text-xs">
+                                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-[10px] font-bold text-destructive">
+                                  {idx + 1}
+                                </span>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-foreground" dangerouslySetInnerHTML={{ __html: step.instruction }} />
+                                  <p className="mt-0.5 text-muted-foreground">{step.distance} · {step.duration}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
 
