@@ -365,6 +365,39 @@ const NearbyStations = () => {
                       </div>
                     )}
 
+                    {activeRoute === station.placeId && routeSteps[station.placeId || ""] && (
+                      <div className="mt-3">
+                        <button
+                          className="flex w-full items-center justify-between rounded-lg bg-primary/5 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/10 transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowSteps((prev) => ({ ...prev, [station.placeId || ""]: !prev[station.placeId || ""] }));
+                          }}
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <CornerDownRight className="h-3.5 w-3.5" />
+                            Turn-by-turn directions ({routeSteps[station.placeId || ""].length} steps)
+                          </span>
+                          {showSteps[station.placeId || ""] ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        </button>
+                        {showSteps[station.placeId || ""] && (
+                          <div className="mt-2 max-h-60 overflow-y-auto space-y-1.5 rounded-xl border border-border bg-card p-3">
+                            {routeSteps[station.placeId || ""].map((step, idx) => (
+                              <div key={idx} className="flex gap-3 text-xs">
+                                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
+                                  {idx + 1}
+                                </span>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-foreground" dangerouslySetInnerHTML={{ __html: step.instruction }} />
+                                  <p className="mt-0.5 text-muted-foreground">{step.distance} · {step.duration}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {activeRoute === station.placeId && (
                       <div className="mt-2 flex justify-end">
                         <a
