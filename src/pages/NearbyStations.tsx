@@ -126,7 +126,17 @@ const NearbyStations = () => {
           if (status === "OK") {
             directionsRenderer.setDirections(result);
             fetchTravelTimes(destination);
-            // Pan map to show route
+            // Extract turn-by-turn steps
+            const legs = result.routes[0]?.legs;
+            if (legs && legs.length > 0) {
+              const steps = legs[0].steps.map((step: any) => ({
+                instruction: step.instructions,
+                distance: step.distance?.text || "",
+                duration: step.duration?.text || "",
+              }));
+              setRouteSteps((prev) => ({ ...prev, [destination.placeId || ""]: steps }));
+              setShowSteps((prev) => ({ ...prev, [destination.placeId || ""]: true }));
+            }
             const bounds = new google.maps.LatLngBounds();
             bounds.extend(new google.maps.LatLng(userLocation.lat, userLocation.lng));
             bounds.extend(new google.maps.LatLng(destination.lat, destination.lng));
