@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import PageHeader from "@/components/PageHeader";
-import { FileText, Upload, CheckCircle, MapPin } from "lucide-react";
+import { FileText, Upload, CheckCircle, MapPin, LogIn } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -35,7 +35,7 @@ const FileComplaint = () => {
   };
 
   const handleSubmit = async () => {
-    if (!user) { toast.error("Please log in first"); navigate("/auth"); return; }
+    if (!user) { toast.error("Please log in to file a complaint"); return; }
     if (!complaintType || !description) { toast.error("Please fill required fields"); return; }
     setLoading(true);
     const { data, error } = await supabase.from("complaints").insert({ user_id: user.id, complaint_type: complaintType, description, location, latitude: coords?.lat, longitude: coords?.lng }).select().single();
@@ -47,7 +47,7 @@ const FileComplaint = () => {
     return (
       <div className="flex min-h-screen flex-col bg-background">
         <PageHeader title={t("fileComplaint")} />
-        <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6">
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 px-4 sm:px-6">
           <div className="flex h-20 w-20 items-center justify-center rounded-full bg-success/10"><CheckCircle className="h-10 w-10 text-success" /></div>
           <h2 className="text-xl font-bold text-foreground">{t("complaintFiled")}</h2>
           <p className="text-center text-sm text-muted-foreground">{t("complaintFiledDesc")}</p>
@@ -61,7 +61,19 @@ const FileComplaint = () => {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <PageHeader title={t("fileComplaint")} subtitle={t("reportIncident")} />
-      <main className="flex-1 space-y-5 px-5 py-6">
+      <main className="flex-1 space-y-5 px-4 py-6 sm:px-5">
+        {!user && (
+          <div className="flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4">
+            <LogIn className="h-5 w-5 text-primary shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-foreground">Login required to submit</p>
+              <p className="text-xs text-muted-foreground">You can fill the form, but must login to submit.</p>
+            </div>
+            <Button asChild size="sm" variant="outline" className="rounded-lg shrink-0">
+              <Link to="/auth">{t("login")}</Link>
+            </Button>
+          </div>
+        )}
         <div className="space-y-2">
           <Label className="text-sm font-medium text-foreground">{t("crimeType")}</Label>
           <Select onValueChange={setComplaintType}>
