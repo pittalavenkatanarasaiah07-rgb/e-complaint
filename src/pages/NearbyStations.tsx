@@ -5,7 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/useLanguage";
 
-const GOOGLE_MAPS_API_KEY = "AIzaSyAY0t7mdhRjMnjvqL7T2MtnfC_u8LAW6wU";
+const GOOGLE_MAPS_API_KEYS = [
+  "AIzaSyDcBmcwDKT8vKmF3rLn2wJgEqdkPCj_CBk",
+  "AIzaSyAY0t7mdhRjMnjvqL7T2MtnfC_u8LAW6wU",
+];
 
 interface Station {
   name: string;
