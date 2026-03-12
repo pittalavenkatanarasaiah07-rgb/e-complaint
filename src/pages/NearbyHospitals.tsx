@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/useLanguage";
 
-// Key 1: Places API (nearby search) | Key 2: Maps rendering (map tiles, directions)
 const PLACES_API_KEY = "AIzaSyDcBmcwDKT8vKmF3rLn2wJgEqdkPCj_CBk";
 const MAPS_API_KEY = "AIzaSyAY0t7mdhRjMnjvqL7T2MtnfC_u8LAW6wU";
 
@@ -34,26 +33,36 @@ const NearbyHospitals = () => {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [places, setPlaces] = useState<Place[]>([]);
   const [mapLoaded, setMapLoaded] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [locationError, setLocationError] = useState(false);
+  const [locationRequested, setLocationRequested] = useState(false);
   const [activeRoute, setActiveRoute] = useState<string | null>(null);
   const [travelTimes, setTravelTimes] = useState<Record<string, TravelInfo>>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [routeSteps, setRouteSteps] = useState<Record<string, { instruction: string; distance: string; duration: string }[]>>({});
   const [showSteps, setShowSteps] = useState<Record<string, boolean>>({});
 
-  useEffect(() => {
-    const defaultLocation = { lat: 28.6139, lng: 77.2090 }; // Default: Delhi
+  // Request location ONLY from user gesture (button click)
+  const requestLocation = () => {
+    setLocationRequested(true);
+    setLoading(true);
+    setLocationError(false);
+
     if (!navigator.geolocation) {
-      setUserLocation(defaultLocation);
+      setUserLocation({ lat: 28.6139, lng: 77.2090 });
       return;
     }
+
     navigator.geolocation.getCurrentPosition(
-      (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => setUserLocation(defaultLocation), // Fallback to default instead of error
-      { enableHighAccuracy: true, timeout: 10000 }
+      (pos) => {
+        setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      },
+      () => {
+        setUserLocation({ lat: 28.6139, lng: 77.2090 });
+      },
+      { enableHighAccuracy: true, timeout: 15000 }
     );
-  }, []);
+  };
 
   const getDistanceNum = (from: { lat: number; lng: number }, to: { lat: number; lng: number }) => {
     const R = 6371;
@@ -200,8 +209,15 @@ const NearbyHospitals = () => {
 
   useEffect(() => {
     if (!userLocation || !mapRef.current) return;
+
     const loadAndInit = () => {
       const google = (window as any).google;
+      if (!google?.maps) {
+        console.error("Google Maps failed to load");
+        setLocationError(true);
+        setLoading(false);
+        return;
+      }
       const map = new google.maps.Map(mapRef.current, {
         center: userLocation, zoom: 13,
         mapTypeId: google.maps.MapTypeId.HYBRID,
@@ -223,34 +239,40 @@ const NearbyHospitals = () => {
       setMapLoaded(true);
       searchNearbyPlaces(map, userLocation);
     };
+
     if (!(window as any).google?.maps?.places) {
-      // Load Maps API with PLACES_API_KEY for Places service, MAPS_API_KEY used at runtime for map tiles
+      document.querySelectorAll('script[src*="maps.googleapis.com"]').forEach(s => s.remove());
+      delete (window as any).google;
+
       const script = document.createElement("script");
       script.src = `https://maps.googleapis.com/maps/api/js?key=${PLACES_API_KEY}&libraries=places`;
       script.async = true;
-      script.onload = loadAndInit;
+      script.onload = () => {
+        console.log("Google Maps loaded with PLACES key");
+        loadAndInit();
+      };
       script.onerror = () => {
+        console.warn("PLACES key failed, trying MAPS key...");
         script.remove();
-        // Fallback: try with MAPS_API_KEY
         const fallback = document.createElement("script");
         fallback.src = `https://maps.googleapis.com/maps/api/js?key=${MAPS_API_KEY}&libraries=places`;
         fallback.async = true;
-        fallback.onload = loadAndInit;
-        fallback.onerror = () => { setLocationError(true); setLoading(false); };
+        fallback.onload = () => {
+          console.log("Google Maps loaded with MAPS key");
+          loadAndInit();
+        };
+        fallback.onerror = () => {
+          console.error("Both API keys failed");
+          setLocationError(true);
+          setLoading(false);
+        };
         document.head.appendChild(fallback);
       };
       document.head.appendChild(script);
-    } else { loadAndInit(); }
+    } else {
+      loadAndInit();
+    }
   }, [userLocation, searchNearbyPlaces]);
-
-  const retryLocation = () => {
-    setLocationError(false); setLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => { setLocationError(true); setLoading(false); },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-  };
 
   const scrollToMap = () => mapRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
 
@@ -266,18 +288,47 @@ const NearbyHospitals = () => {
 
   const { t } = useLanguage();
 
+  // Initial screen: prompt user to tap button
+  if (!locationRequested) {
+    return (
+      <div className="flex min-h-screen flex-col bg-background">
+        <PageHeader title={t("nearbyHospitals")} subtitle={t("hospitalsNearYou")} />
+        <main className="flex-1 flex items-center justify-center px-5 py-6">
+          <div className="flex flex-col items-center gap-6 rounded-2xl border border-border bg-card p-8 text-center max-w-sm w-full shadow-card">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
+              <Heart className="h-8 w-8 text-destructive" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-foreground">{t("locationRequired")}</h3>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {t("enableLocationHospital")}
+              </p>
+            </div>
+            <Button onClick={requestLocation} size="lg" className="rounded-xl w-full bg-destructive hover:bg-destructive/90">
+              <Heart className="mr-2 h-5 w-5" />
+              {t("findNearbyHospitals") || "Find Nearby Hospitals"}
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              {t("locationFallbackNote") || "If location is unavailable, we'll show results for Delhi"}
+            </p>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <PageHeader title={t("nearbyHospitals")} subtitle={t("hospitalsNearYou")} />
       <main className="flex-1 space-y-4 px-5 py-6">
         {locationError ? (
           <div className="flex flex-col items-center gap-4 rounded-2xl border border-border bg-card p-8 text-center">
-            <AlertCircle className="h-10 w-10 text-emergency" />
+            <AlertCircle className="h-10 w-10 text-destructive" />
             <div>
               <h3 className="font-semibold text-foreground">{t("locationRequired")}</h3>
               <p className="mt-1 text-sm text-muted-foreground">{t("enableLocationHospital")}</p>
             </div>
-            <Button onClick={retryLocation} className="rounded-xl"><Navigation className="mr-2 h-4 w-4" />{t("tryAgain")}</Button>
+            <Button onClick={requestLocation} className="rounded-xl"><Navigation className="mr-2 h-4 w-4" />{t("tryAgain")}</Button>
           </div>
         ) : (
           <>
@@ -285,7 +336,7 @@ const NearbyHospitals = () => {
               {!mapLoaded && (
                 <div className="absolute inset-0 flex items-center justify-center z-10 bg-muted">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                    <Heart className="h-8 w-8 text-emergency animate-pulse" />
+                    <Heart className="h-8 w-8 text-destructive animate-pulse" />
                     <span className="text-sm font-medium">{t("detectingLocation")}</span>
                   </div>
                 </div>
@@ -302,7 +353,7 @@ const NearbyHospitals = () => {
 
             {loading ? (
               <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-emergency" />
+                <Loader2 className="h-6 w-6 animate-spin text-destructive" />
                 <span className="ml-2 text-sm text-muted-foreground">{t("findingHospitals")}</span>
               </div>
             ) : places.length === 0 ? (
@@ -382,48 +433,28 @@ const NearbyHospitals = () => {
                     )}
 
                     {activeRoute === place.placeId && routeSteps[place.placeId || ""] && (
-                      <div className="mt-3">
+                      <div className="mt-2 pl-10">
                         <button
-                          className="flex w-full items-center justify-between rounded-lg bg-destructive/5 px-3 py-2 text-xs font-semibold text-destructive hover:bg-destructive/10 transition-colors"
+                          className="flex items-center gap-1 text-xs text-destructive font-medium"
                           onClick={(e) => {
                             e.stopPropagation();
                             setShowSteps((prev) => ({ ...prev, [place.placeId || ""]: !prev[place.placeId || ""] }));
                           }}
                         >
-                          <span className="flex items-center gap-1.5">
-                            <CornerDownRight className="h-3.5 w-3.5" />
-                            Turn-by-turn directions ({routeSteps[place.placeId || ""].length} steps)
-                          </span>
-                          {showSteps[place.placeId || ""] ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                          {showSteps[place.placeId || ""] ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                          {showSteps[place.placeId || ""] ? t("hideSteps") || "Hide Steps" : t("showSteps") || "Show Steps"}
                         </button>
                         {showSteps[place.placeId || ""] && (
-                          <div className="mt-2 max-h-60 overflow-y-auto space-y-1.5 rounded-xl border border-border bg-card p-3">
+                          <div className="mt-2 space-y-1.5">
                             {routeSteps[place.placeId || ""].map((step, idx) => (
-                              <div key={idx} className="flex gap-3 text-xs">
-                                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-[10px] font-bold text-destructive">
-                                  {idx + 1}
-                                </span>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-foreground" dangerouslySetInnerHTML={{ __html: step.instruction }} />
-                                  <p className="mt-0.5 text-muted-foreground">{step.distance} · {step.duration}</p>
-                                </div>
+                              <div key={idx} className="flex items-start gap-2 text-xs text-muted-foreground">
+                                <CornerDownRight className="h-3 w-3 mt-0.5 shrink-0 text-destructive" />
+                                <span dangerouslySetInnerHTML={{ __html: step.instruction }} />
+                                <span className="shrink-0 text-[10px] text-muted-foreground/70">{step.distance}</span>
                               </div>
                             ))}
                           </div>
                         )}
-                      </div>
-                    )}
-
-                    {activeRoute === place.placeId && (
-                      <div className="mt-2 flex justify-end">
-                        <a
-                          href={`https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}&destination_place_id=${place.placeId}`}
-                          target="_blank" rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 rounded-lg bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground hover:bg-destructive/90"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Navigation className="h-3 w-3" />{t("openInGoogleMaps")}
-                        </a>
                       </div>
                     )}
                   </div>
