@@ -381,6 +381,11 @@ const translations = {
     openInGoogleMaps: "Google Maps లో తెరవండి",
     hospital: "ఆసుపత్రి",
     clinic: "క్లినిక్",
+    findNearbyStations: "సమీపంలోని స్టేషన్లు కనుగొనండి",
+    findNearbyHospitals: "సమీపంలోని ఆసుపత్రులు కనుగొనండి",
+    locationFallbackNote: "స్థానం అందుబాటులో లేకుంటే, ఢిల్లీ ఫలితాలు చూపిస్తాము",
+    hideSteps: "దశలు దాచు",
+    showSteps: "దశలు చూపు",
   },
 } as const;
 
