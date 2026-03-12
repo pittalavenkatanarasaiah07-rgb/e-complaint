@@ -255,6 +255,11 @@ const translations = {
     openInGoogleMaps: "Google Maps में खोलें",
     hospital: "अस्पताल",
     clinic: "क्लिनिक",
+    findNearbyStations: "नजदीकी थाने खोजें",
+    findNearbyHospitals: "नजदीकी अस्पताल खोजें",
+    locationFallbackNote: "यदि स्थान उपलब्ध नहीं है, तो हम दिल्ली के परिणाम दिखाएंगे",
+    hideSteps: "चरण छिपाएं",
+    showSteps: "चरण दिखाएं",
   },
   te: {
     appName: "సేఫ్‌గార్డ్",
