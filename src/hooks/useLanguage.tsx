@@ -129,6 +129,11 @@ const translations = {
     openInGoogleMaps: "Open in Google Maps",
     hospital: "Hospital",
     clinic: "Clinic",
+    findNearbyStations: "Find Nearby Stations",
+    findNearbyHospitals: "Find Nearby Hospitals",
+    locationFallbackNote: "If location is unavailable, we'll show results for Delhi",
+    hideSteps: "Hide Steps",
+    showSteps: "Show Steps",
   },
   hi: {
     appName: "सेफगार्ड",
