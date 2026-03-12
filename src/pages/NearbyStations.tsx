@@ -43,10 +43,14 @@ const NearbyStations = () => {
   const [showSteps, setShowSteps] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    if (!navigator.geolocation) { setLocationError(true); setLoading(false); return; }
+    const defaultLocation = { lat: 28.6139, lng: 77.2090 }; // Default: Delhi
+    if (!navigator.geolocation) {
+      setUserLocation(defaultLocation);
+      return;
+    }
     navigator.geolocation.getCurrentPosition(
       (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => { setLocationError(true); setLoading(false); },
+      () => setUserLocation(defaultLocation), // Fallback to default instead of error
       { enableHighAccuracy: true, timeout: 10000 }
     );
   }, []);
