@@ -5,10 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/useLanguage";
 
-const GOOGLE_MAPS_API_KEYS = [
-  "AIzaSyDcBmcwDKT8vKmF3rLn2wJgEqdkPCj_CBk",
-  "AIzaSyAY0t7mdhRjMnjvqL7T2MtnfC_u8LAW6wU",
-];
+// Key 1: Places API (nearby search) | Key 2: Maps rendering (map tiles, directions)
+const PLACES_API_KEY = "AIzaSyDcBmcwDKT8vKmF3rLn2wJgEqdkPCj_CBk";
+const MAPS_API_KEY = "AIzaSyAY0t7mdhRjMnjvqL7T2MtnfC_u8LAW6wU";
 
 interface Station {
   name: string;
@@ -230,16 +229,22 @@ const NearbyStations = () => {
     };
 
     if (!(window as any).google?.maps?.places) {
-      const tryLoadScript = (keyIndex: number) => {
-        if (keyIndex >= GOOGLE_MAPS_API_KEYS.length) { setLocationError(true); setLoading(false); return; }
-        const script = document.createElement("script");
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEYS[keyIndex]}&libraries=places`;
-        script.async = true;
-        script.onload = loadAndInit;
-        script.onerror = () => { script.remove(); tryLoadScript(keyIndex + 1); };
-        document.head.appendChild(script);
+      // Load Maps API with PLACES_API_KEY for Places service, MAPS_API_KEY used at runtime for map tiles
+      const script = document.createElement("script");
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${PLACES_API_KEY}&libraries=places`;
+      script.async = true;
+      script.onload = loadAndInit;
+      script.onerror = () => {
+        script.remove();
+        // Fallback: try with MAPS_API_KEY
+        const fallback = document.createElement("script");
+        fallback.src = `https://maps.googleapis.com/maps/api/js?key=${MAPS_API_KEY}&libraries=places`;
+        fallback.async = true;
+        fallback.onload = loadAndInit;
+        fallback.onerror = () => { setLocationError(true); setLoading(false); };
+        document.head.appendChild(fallback);
       };
-      tryLoadScript(0);
+      document.head.appendChild(script);
     } else { loadAndInit(); }
   }, [userLocation, searchNearbyStations]);
 
