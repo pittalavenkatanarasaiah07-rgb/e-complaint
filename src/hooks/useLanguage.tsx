@@ -129,6 +129,11 @@ const translations = {
     openInGoogleMaps: "Open in Google Maps",
     hospital: "Hospital",
     clinic: "Clinic",
+    findNearbyStations: "Find Nearby Stations",
+    findNearbyHospitals: "Find Nearby Hospitals",
+    locationFallbackNote: "If location is unavailable, we'll show results for Delhi",
+    hideSteps: "Hide Steps",
+    showSteps: "Show Steps",
   },
   hi: {
     appName: "सेफगार्ड",
@@ -250,6 +255,11 @@ const translations = {
     openInGoogleMaps: "Google Maps में खोलें",
     hospital: "अस्पताल",
     clinic: "क्लिनिक",
+    findNearbyStations: "नजदीकी थाने खोजें",
+    findNearbyHospitals: "नजदीकी अस्पताल खोजें",
+    locationFallbackNote: "यदि स्थान उपलब्ध नहीं है, तो हम दिल्ली के परिणाम दिखाएंगे",
+    hideSteps: "चरण छिपाएं",
+    showSteps: "चरण दिखाएं",
   },
   te: {
     appName: "సేఫ్‌గార్డ్",
@@ -371,6 +381,11 @@ const translations = {
     openInGoogleMaps: "Google Maps లో తెరవండి",
     hospital: "ఆసుపత్రి",
     clinic: "క్లినిక్",
+    findNearbyStations: "సమీపంలోని స్టేషన్లు కనుగొనండి",
+    findNearbyHospitals: "సమీపంలోని ఆసుపత్రులు కనుగొనండి",
+    locationFallbackNote: "స్థానం అందుబాటులో లేకుంటే, ఢిల్లీ ఫలితాలు చూపిస్తాము",
+    hideSteps: "దశలు దాచు",
+    showSteps: "దశలు చూపు",
   },
 } as const;
 
