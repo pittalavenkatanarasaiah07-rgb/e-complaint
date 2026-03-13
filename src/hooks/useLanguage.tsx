@@ -392,6 +392,9 @@ const translations = {
     locationFallbackNote: "స్థానం అందుబాటులో లేకుంటే, ఢిల్లీ ఫలితాలు చూపిస్తాము",
     hideSteps: "దశలు దాచు",
     showSteps: "దశలు చూపు",
+    selectCity: "నగరాన్ని ఎంచుకోండి",
+    useMyLocation: "నా స్థానాన్ని ఉపయోగించండి",
+    showingResultsFor: "ఫలితాలు చూపిస్తోంది",
   },
 } as const;
 
