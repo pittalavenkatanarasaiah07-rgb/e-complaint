@@ -134,6 +134,9 @@ const translations = {
     locationFallbackNote: "If location is unavailable, we'll show results for Delhi",
     hideSteps: "Hide Steps",
     showSteps: "Show Steps",
+    selectCity: "Select a city",
+    useMyLocation: "Use my location",
+    showingResultsFor: "Showing results for",
   },
   hi: {
     appName: "सेफगार्ड",
