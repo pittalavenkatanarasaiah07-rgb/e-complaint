@@ -263,6 +263,9 @@ const translations = {
     locationFallbackNote: "यदि स्थान उपलब्ध नहीं है, तो हम दिल्ली के परिणाम दिखाएंगे",
     hideSteps: "चरण छिपाएं",
     showSteps: "चरण दिखाएं",
+    selectCity: "शहर चुनें",
+    useMyLocation: "मेरा स्थान उपयोग करें",
+    showingResultsFor: "परिणाम दिखा रहे हैं",
   },
   te: {
     appName: "సేఫ్‌గార్డ్",
