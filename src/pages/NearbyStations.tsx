@@ -1,12 +1,35 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import PageHeader from "@/components/PageHeader";
-import { MapPin, Clock, Navigation, Loader2, AlertCircle, Route, Car, Bike, Footprints, Search, ChevronDown, ChevronUp, CornerDownRight } from "lucide-react";
+import { MapPin, Clock, Navigation, Loader2, AlertCircle, Route, Car, Bike, Footprints, Search, ChevronDown, ChevronUp, CornerDownRight, LocateFixed } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/useLanguage";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const PLACES_API_KEY = "AIzaSyDcBmcwDKT8vKmF3rLn2wJgEqdkPCj_CBk";
 const MAPS_API_KEY = "AIzaSyAY0t7mdhRjMnjvqL7T2MtnfC_u8LAW6wU";
+
+const CITIES = [
+  { label: "Delhi", lat: 28.6139, lng: 77.2090 },
+  { label: "Mumbai", lat: 19.0760, lng: 72.8777 },
+  { label: "Bangalore", lat: 12.9716, lng: 77.5946 },
+  { label: "Chennai", lat: 13.0827, lng: 80.2707 },
+  { label: "Hyderabad", lat: 17.3850, lng: 78.4867 },
+  { label: "Kolkata", lat: 22.5726, lng: 88.3639 },
+  { label: "Pune", lat: 18.5204, lng: 73.8567 },
+  { label: "Ahmedabad", lat: 23.0225, lng: 72.5714 },
+  { label: "Jaipur", lat: 26.9124, lng: 75.7873 },
+  { label: "Lucknow", lat: 26.8467, lng: 80.9462 },
+  { label: "Visakhapatnam", lat: 17.6868, lng: 83.2185 },
+  { label: "Vijayawada", lat: 16.5062, lng: 80.6480 },
+  { label: "Tirupati", lat: 13.6288, lng: 79.4192 },
+];
 
 interface Station {
   name: string;
@@ -33,36 +56,71 @@ const NearbyStations = () => {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [stations, setStations] = useState<Station[]>([]);
   const [mapLoaded, setMapLoaded] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [locationError, setLocationError] = useState(false);
-  const [locationRequested, setLocationRequested] = useState(false);
   const [activeRoute, setActiveRoute] = useState<string | null>(null);
   const [travelTimes, setTravelTimes] = useState<Record<string, TravelInfo>>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [routeSteps, setRouteSteps] = useState<Record<string, { instruction: string; distance: string; duration: string }[]>>({});
   const [showSteps, setShowSteps] = useState<Record<string, boolean>>({});
+  const [usingManualLocation, setUsingManualLocation] = useState(false);
 
-  // Request location ONLY from user gesture (button click)
-  const requestLocation = () => {
-    setLocationRequested(true);
-    setLoading(true);
-    setLocationError(false);
+  const { t } = useLanguage();
 
+  // Auto-request location on mount
+  useEffect(() => {
     if (!navigator.geolocation) {
-      // No geolocation support - use default
       setUserLocation({ lat: 28.6139, lng: 77.2090 });
       return;
     }
-
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
       },
       () => {
-        // Permission denied or error - use default location
+        // Permission denied - use default
         setUserLocation({ lat: 28.6139, lng: 77.2090 });
+        setUsingManualLocation(true);
       },
-      { enableHighAccuracy: true, timeout: 15000 }
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }, []);
+
+  const handleCitySelect = (cityLabel: string) => {
+    const city = CITIES.find(c => c.label === cityLabel);
+    if (!city) return;
+    setUsingManualLocation(true);
+    setLoading(true);
+    setStations([]);
+    setActiveRoute(null);
+    setMapLoaded(false);
+    // Clear old map
+    if (directionsRendererRef.current) directionsRendererRef.current.setMap(null);
+    markersRef.current.forEach(m => m.setMap(null));
+    markersRef.current = [];
+    mapInstanceRef.current = null;
+    setUserLocation({ lat: city.lat, lng: city.lng });
+  };
+
+  const handleUseMyLocation = () => {
+    if (!navigator.geolocation) return;
+    setLoading(true);
+    setStations([]);
+    setActiveRoute(null);
+    setMapLoaded(false);
+    if (directionsRendererRef.current) directionsRendererRef.current.setMap(null);
+    markersRef.current.forEach(m => m.setMap(null));
+    markersRef.current = [];
+    mapInstanceRef.current = null;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUsingManualLocation(false);
+        setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      },
+      () => {
+        setLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
     );
   };
 
@@ -82,13 +140,10 @@ const NearbyStations = () => {
   const fetchTravelTimes = useCallback((destination: Station) => {
     const google = (window as any).google;
     if (!userLocation || !google) return;
-
     const service = new google.maps.DistanceMatrixService();
     const origin = new google.maps.LatLng(userLocation.lat, userLocation.lng);
     const dest = new google.maps.LatLng(destination.lat, destination.lng);
-
     const info: TravelInfo = { walking: "...", twoWheeler: "...", fourWheeler: "..." };
-
     [
       { mode: google.maps.TravelMode.WALKING, key: "walking" },
       { mode: google.maps.TravelMode.DRIVING, key: "fourWheeler" },
@@ -118,21 +173,15 @@ const NearbyStations = () => {
     const google = (window as any).google;
     const map = mapInstanceRef.current;
     if (!map || !userLocation) return;
-
     if (directionsRendererRef.current) directionsRendererRef.current.setMap(null);
-
     setActiveRoute((prev) => {
-      if (prev === destination.placeId) {
-        return null;
-      }
-
+      if (prev === destination.placeId) return null;
       const directionsService = new google.maps.DirectionsService();
       const directionsRenderer = new google.maps.DirectionsRenderer({
         map, suppressMarkers: true,
         polylineOptions: { strokeColor: "#2563EB", strokeWeight: 6, strokeOpacity: 0.9 },
       });
       directionsRendererRef.current = directionsRenderer;
-
       directionsService.route(
         {
           origin: new google.maps.LatLng(userLocation.lat, userLocation.lng),
@@ -160,19 +209,15 @@ const NearbyStations = () => {
           }
         }
       );
-
       return destination.placeId || null;
     });
   }, [userLocation, fetchTravelTimes]);
 
-  useEffect(() => {
-    showRouteRef.current = showRoute;
-  }, [showRoute]);
+  useEffect(() => { showRouteRef.current = showRoute; }, [showRoute]);
 
   const searchNearbyStations = useCallback((map: any, location: { lat: number; lng: number }) => {
     const google = (window as any).google;
     const service = new google.maps.places.PlacesService(map);
-
     service.nearbySearch(
       { location: new google.maps.LatLng(location.lat, location.lng), radius: 50000, type: "police" },
       (results: any[], status: string) => {
@@ -187,10 +232,8 @@ const NearbyStations = () => {
           }));
           found.sort((a, b) => getDistanceNum(location, a) - getDistanceNum(location, b));
           setStations(found);
-
           markersRef.current.forEach((m) => m.setMap(null));
           markersRef.current = [];
-
           found.forEach((s) => {
             const marker = new google.maps.Marker({
               position: { lat: s.lat, lng: s.lng }, map, title: s.name,
@@ -199,7 +242,6 @@ const NearbyStations = () => {
             markersRef.current.push(marker);
             marker.addListener("click", () => showRouteRef.current(s));
           });
-
           if (found.length > 0) {
             const bounds = new google.maps.LatLngBounds();
             bounds.extend(new google.maps.LatLng(location.lat, location.lng));
@@ -212,14 +254,11 @@ const NearbyStations = () => {
     );
   }, []);
 
-  // Load Google Maps and init map ONLY after userLocation is set
   useEffect(() => {
     if (!userLocation || !mapRef.current) return;
-
     const loadAndInit = () => {
       const google = (window as any).google;
       if (!google?.maps) {
-        console.error("Google Maps failed to load");
         setLocationError(true);
         setLoading(false);
         return;
@@ -232,50 +271,34 @@ const NearbyStations = () => {
         zoomControl: true, streetViewControl: false, fullscreenControl: true,
       });
       mapInstanceRef.current = map;
-
       new google.maps.Marker({
         position: userLocation, map,
         icon: { path: google.maps.SymbolPath.CIRCLE, scale: 10, fillColor: "#2563EB", fillOpacity: 1, strokeColor: "#fff", strokeWeight: 3 },
         title: "Your Location", zIndex: 999,
       });
-
       new google.maps.Circle({
         map, center: userLocation, radius: 2000,
         fillColor: "#2563EB", fillOpacity: 0.05,
         strokeColor: "#2563EB", strokeOpacity: 0.3, strokeWeight: 1,
       });
-
       setMapLoaded(true);
       searchNearbyStations(map, userLocation);
     };
 
     if (!(window as any).google?.maps?.places) {
-      // Remove any existing Google Maps scripts to avoid conflicts
       document.querySelectorAll('script[src*="maps.googleapis.com"]').forEach(s => s.remove());
       delete (window as any).google;
-
       const script = document.createElement("script");
       script.src = `https://maps.googleapis.com/maps/api/js?key=${PLACES_API_KEY}&libraries=places`;
       script.async = true;
-      script.onload = () => {
-        console.log("Google Maps loaded with PLACES key");
-        loadAndInit();
-      };
+      script.onload = () => loadAndInit();
       script.onerror = () => {
-        console.warn("PLACES key failed, trying MAPS key...");
         script.remove();
         const fallback = document.createElement("script");
         fallback.src = `https://maps.googleapis.com/maps/api/js?key=${MAPS_API_KEY}&libraries=places`;
         fallback.async = true;
-        fallback.onload = () => {
-          console.log("Google Maps loaded with MAPS key");
-          loadAndInit();
-        };
-        fallback.onerror = () => {
-          console.error("Both API keys failed");
-          setLocationError(true);
-          setLoading(false);
-        };
+        fallback.onload = () => loadAndInit();
+        fallback.onerror = () => { setLocationError(true); setLoading(false); };
         document.head.appendChild(fallback);
       };
       document.head.appendChild(script);
@@ -284,50 +307,43 @@ const NearbyStations = () => {
     }
   }, [userLocation, searchNearbyStations]);
 
-  const scrollToMap = () => {
-    mapRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
+  const scrollToMap = () => mapRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   const handleStationClick = (station: Station) => {
     showRoute(station);
     scrollToMap();
   };
 
-  const { t } = useLanguage();
-
-  // Initial screen: prompt user to tap button to find stations
-  if (!locationRequested) {
-    return (
-      <div className="flex min-h-screen flex-col bg-background">
-        <PageHeader title={t("nearbyStations")} subtitle={t("policeStationsNearYou")} />
-        <main className="flex-1 flex items-center justify-center px-5 py-6">
-          <div className="flex flex-col items-center gap-6 rounded-2xl border border-border bg-card p-8 text-center max-w-sm w-full shadow-card">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-              <Navigation className="h-8 w-8 text-primary" />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-foreground">{t("locationRequired")}</h3>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {t("enableLocationPolice")}
-              </p>
-            </div>
-            <Button onClick={requestLocation} size="lg" className="rounded-xl w-full">
-              <MapPin className="mr-2 h-5 w-5" />
-              {t("findNearbyStations") || "Find Nearby Stations"}
-            </Button>
-            <p className="text-xs text-muted-foreground">
-              {t("locationFallbackNote") || "If location is unavailable, we'll show results for Delhi"}
-            </p>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <PageHeader title={t("nearbyStations")} subtitle={t("policeStationsNearYou")} />
       <main className="flex-1 space-y-4 px-5 py-6">
+        {/* Manual Location Picker */}
+        <div className="flex items-center gap-2">
+          <Select onValueChange={handleCitySelect}>
+            <SelectTrigger className="flex-1 rounded-xl">
+              <SelectValue placeholder={t("selectCity") || "Select a city"} />
+            </SelectTrigger>
+            <SelectContent>
+              {CITIES.map(city => (
+                <SelectItem key={city.label} value={city.label}>
+                  {city.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button variant="outline" size="icon" className="rounded-xl shrink-0" onClick={handleUseMyLocation} title={t("useMyLocation") || "Use my location"}>
+            <LocateFixed className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {usingManualLocation && userLocation && (
+          <p className="text-xs text-muted-foreground flex items-center gap-1">
+            <MapPin className="h-3 w-3 text-primary" />
+            {t("showingResultsFor") || "Showing results for"}: {CITIES.find(c => c.lat === userLocation.lat && c.lng === userLocation.lng)?.label || `${userLocation.lat.toFixed(4)}, ${userLocation.lng.toFixed(4)}`}
+          </p>
+        )}
+
         {locationError ? (
           <div className="flex flex-col items-center gap-4 rounded-2xl border border-border bg-card p-8 text-center">
             <AlertCircle className="h-10 w-10 text-destructive" />
@@ -335,7 +351,7 @@ const NearbyStations = () => {
               <h3 className="font-semibold text-foreground">{t("locationRequired")}</h3>
               <p className="mt-1 text-sm text-muted-foreground">{t("enableLocationPolice")}</p>
             </div>
-            <Button onClick={requestLocation} className="rounded-xl"><Navigation className="mr-2 h-4 w-4" />{t("tryAgain")}</Button>
+            <Button onClick={handleUseMyLocation} className="rounded-xl"><Navigation className="mr-2 h-4 w-4" />{t("tryAgain")}</Button>
           </div>
         ) : (
           <>
@@ -351,7 +367,7 @@ const NearbyStations = () => {
               <div ref={mapRef} className="h-full w-full" />
             </div>
 
-            {userLocation && (
+            {userLocation && !usingManualLocation && (
               <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <MapPin className="h-3 w-3 text-primary" />
                 {t("yourLocation")}: {userLocation.lat.toFixed(4)}, {userLocation.lng.toFixed(4)}

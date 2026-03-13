@@ -134,6 +134,9 @@ const translations = {
     locationFallbackNote: "If location is unavailable, we'll show results for Delhi",
     hideSteps: "Hide Steps",
     showSteps: "Show Steps",
+    selectCity: "Select a city",
+    useMyLocation: "Use my location",
+    showingResultsFor: "Showing results for",
   },
   hi: {
     appName: "सेफगार्ड",
@@ -260,6 +263,9 @@ const translations = {
     locationFallbackNote: "यदि स्थान उपलब्ध नहीं है, तो हम दिल्ली के परिणाम दिखाएंगे",
     hideSteps: "चरण छिपाएं",
     showSteps: "चरण दिखाएं",
+    selectCity: "शहर चुनें",
+    useMyLocation: "मेरा स्थान उपयोग करें",
+    showingResultsFor: "परिणाम दिखा रहे हैं",
   },
   te: {
     appName: "సేఫ్‌గార్డ్",
@@ -386,6 +392,9 @@ const translations = {
     locationFallbackNote: "స్థానం అందుబాటులో లేకుంటే, ఢిల్లీ ఫలితాలు చూపిస్తాము",
     hideSteps: "దశలు దాచు",
     showSteps: "దశలు చూపు",
+    selectCity: "నగరాన్ని ఎంచుకోండి",
+    useMyLocation: "నా స్థానాన్ని ఉపయోగించండి",
+    showingResultsFor: "ఫలితాలు చూపిస్తోంది",
   },
 } as const;
 
