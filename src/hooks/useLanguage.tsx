@@ -249,6 +249,7 @@ const translations = {
     tapToSeeRoute: "मार्ग देखने के लिए टैप करें",
     searchStations: "पुलिस थाने खोजें...",
     searchHospitals: "अस्पताल और क्लिनिक खोजें...",
+    searchLocation: "स्थान खोजें...",
     open: "खुला",
     closed: "बंद",
     routeShown: "मार्ग दिखाया ✓",
