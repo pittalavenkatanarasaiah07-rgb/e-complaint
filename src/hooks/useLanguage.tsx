@@ -119,6 +119,7 @@ const translations = {
     tapToSeeRoute: "Tap to see route",
     searchStations: "Search police stations...",
     searchHospitals: "Search hospitals & clinics...",
+    searchLocation: "Search for a location...",
     open: "Open",
     closed: "Closed",
     routeShown: "Route Shown ✓",
