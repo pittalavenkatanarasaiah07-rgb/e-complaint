@@ -12,8 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const PLACES_API_KEY = "AIzaSyDcBmcwDKT8vKmF3rLn2wJgEqdkPCj_CBk";
-const MAPS_API_KEY = "AIzaSyAY0t7mdhRjMnjvqL7T2MtnfC_u8LAW6wU";
+const GOOGLE_API_KEY = "AIzaSyC1LKMKsXG77surishSPyNWJ-ayrza3ptw";
 
 const CITIES = [
   { label: "Delhi", lat: 28.6139, lng: 77.2090 },
