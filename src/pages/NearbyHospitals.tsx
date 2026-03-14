@@ -12,8 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const PLACES_API_KEY = "AIzaSyDcBmcwDKT8vKmF3rLn2wJgEqdkPCj_CBk";
-const MAPS_API_KEY = "AIzaSyAY0t7mdhRjMnjvqL7T2MtnfC_u8LAW6wU";
+const GOOGLE_API_KEY = "AIzaSyC1LKMKsXG77surishSPyNWJ-ayrza3ptw";
 
 const CITIES = [
   { label: "Delhi", lat: 28.6139, lng: 77.2090 },
@@ -298,18 +297,10 @@ const NearbyHospitals = () => {
       document.querySelectorAll('script[src*="maps.googleapis.com"]').forEach(s => s.remove());
       delete (window as any).google;
       const script = document.createElement("script");
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${PLACES_API_KEY}&libraries=places`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_API_KEY}&libraries=places`;
       script.async = true;
       script.onload = () => loadAndInit();
-      script.onerror = () => {
-        script.remove();
-        const fallback = document.createElement("script");
-        fallback.src = `https://maps.googleapis.com/maps/api/js?key=${MAPS_API_KEY}&libraries=places`;
-        fallback.async = true;
-        fallback.onload = () => loadAndInit();
-        fallback.onerror = () => { setLocationError(true); setLoading(false); };
-        document.head.appendChild(fallback);
-      };
+      script.onerror = () => { setLocationError(true); setLoading(false); };
       document.head.appendChild(script);
     } else {
       loadAndInit();
