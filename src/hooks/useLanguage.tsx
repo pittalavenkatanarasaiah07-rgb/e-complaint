@@ -379,6 +379,7 @@ const translations = {
     tapToSeeRoute: "మార్గం చూడటానికి టాప్ చేయండి",
     searchStations: "పోలీస్ స్టేషన్లు వెతకండి...",
     searchHospitals: "ఆసుపత్రులు & క్లినిక్‌లు వెతకండి...",
+    searchLocation: "ప్రదేశాన్ని వెతకండి...",
     open: "తెరిచి ఉంది",
     closed: "మూసి ఉంది",
     routeShown: "మార్గం చూపబడింది ✓",
