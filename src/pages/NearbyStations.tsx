@@ -4,31 +4,8 @@ import { MapPin, Clock, Navigation, Loader2, AlertCircle, Route, Car, Bike, Foot
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/useLanguage";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 const GOOGLE_API_KEY = "AIzaSyC1LKMKsXG77surishSPyNWJ-ayrza3ptw";
-
-const CITIES = [
-  { label: "Delhi", lat: 28.6139, lng: 77.2090 },
-  { label: "Mumbai", lat: 19.0760, lng: 72.8777 },
-  { label: "Bangalore", lat: 12.9716, lng: 77.5946 },
-  { label: "Chennai", lat: 13.0827, lng: 80.2707 },
-  { label: "Hyderabad", lat: 17.3850, lng: 78.4867 },
-  { label: "Kolkata", lat: 22.5726, lng: 88.3639 },
-  { label: "Pune", lat: 18.5204, lng: 73.8567 },
-  { label: "Ahmedabad", lat: 23.0225, lng: 72.5714 },
-  { label: "Jaipur", lat: 26.9124, lng: 75.7873 },
-  { label: "Lucknow", lat: 26.8467, lng: 80.9462 },
-  { label: "Visakhapatnam", lat: 17.6868, lng: 83.2185 },
-  { label: "Vijayawada", lat: 16.5062, lng: 80.6480 },
-  { label: "Tirupati", lat: 13.6288, lng: 79.4192 },
-];
 
 interface Station {
   name: string;
@@ -52,6 +29,12 @@ const NearbyStations = () => {
   const directionsRendererRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
   const showRouteRef = useRef<(station: Station) => void>(() => {});
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const autocompleteRef = useRef<any>(null);
+  const watchIdRef = useRef<number | null>(null);
+  const userMarkerRef = useRef<any>(null);
+  const radiusCircleRef = useRef<any>(null);
+
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [stations, setStations] = useState<Station[]>([]);
   const [mapLoaded, setMapLoaded] = useState(false);
@@ -59,68 +42,80 @@ const NearbyStations = () => {
   const [locationError, setLocationError] = useState(false);
   const [activeRoute, setActiveRoute] = useState<string | null>(null);
   const [travelTimes, setTravelTimes] = useState<Record<string, TravelInfo>>({});
-  const [searchQuery, setSearchQuery] = useState("");
+  const [filterQuery, setFilterQuery] = useState("");
   const [routeSteps, setRouteSteps] = useState<Record<string, { instruction: string; distance: string; duration: string }[]>>({});
   const [showSteps, setShowSteps] = useState<Record<string, boolean>>({});
-  const [usingManualLocation, setUsingManualLocation] = useState(false);
+  const [locationLabel, setLocationLabel] = useState<string>("");
 
   const { t } = useLanguage();
 
-  // Auto-request location on mount
+  // Watch live location
   useEffect(() => {
     if (!navigator.geolocation) {
       setUserLocation({ lat: 28.6139, lng: 77.2090 });
+      setLocationLabel("Delhi (default)");
       return;
     }
-    navigator.geolocation.getCurrentPosition(
+    watchIdRef.current = navigator.geolocation.watchPosition(
       (pos) => {
-        setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setUserLocation(loc);
+        setLocationLabel(`${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}`);
+        // Update user marker position if map exists
+        if (userMarkerRef.current) {
+          userMarkerRef.current.setPosition(loc);
+        }
+        if (radiusCircleRef.current) {
+          radiusCircleRef.current.setCenter(loc);
+        }
       },
       () => {
-        // Permission denied - use default
         setUserLocation({ lat: 28.6139, lng: 77.2090 });
-        setUsingManualLocation(true);
+        setLocationLabel("Delhi (default)");
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
     );
+    return () => {
+      if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
+    };
   }, []);
 
-  const handleCitySelect = (cityLabel: string) => {
-    const city = CITIES.find(c => c.label === cityLabel);
-    if (!city) return;
-    setUsingManualLocation(true);
+  const resetMapState = () => {
     setLoading(true);
     setStations([]);
     setActiveRoute(null);
     setMapLoaded(false);
-    // Clear old map
     if (directionsRendererRef.current) directionsRendererRef.current.setMap(null);
     markersRef.current.forEach(m => m.setMap(null));
     markersRef.current = [];
+    userMarkerRef.current = null;
+    radiusCircleRef.current = null;
     mapInstanceRef.current = null;
-    setUserLocation({ lat: city.lat, lng: city.lng });
   };
 
   const handleUseMyLocation = () => {
     if (!navigator.geolocation) return;
-    setLoading(true);
-    setStations([]);
-    setActiveRoute(null);
-    setMapLoaded(false);
-    if (directionsRendererRef.current) directionsRendererRef.current.setMap(null);
-    markersRef.current.forEach(m => m.setMap(null));
-    markersRef.current = [];
-    mapInstanceRef.current = null;
+    resetMapState();
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setUsingManualLocation(false);
-        setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setLocationLabel(`${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}`);
+        setUserLocation({ ...loc }); // new ref to trigger useEffect
       },
-      () => {
-        setLoading(false);
-      },
+      () => { setLoading(false); },
       { enableHighAccuracy: true, timeout: 10000 }
     );
+  };
+
+  const handlePlaceSelected = (place: any) => {
+    if (!place.geometry) return;
+    resetMapState();
+    const loc = {
+      lat: place.geometry.location.lat(),
+      lng: place.geometry.location.lng(),
+    };
+    setLocationLabel(place.formatted_address || place.name || `${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}`);
+    setUserLocation(loc);
   };
 
   const getDistanceNum = (from: { lat: number; lng: number }, to: { lat: number; lng: number }) => {
@@ -218,7 +213,7 @@ const NearbyStations = () => {
     const google = (window as any).google;
     const service = new google.maps.places.PlacesService(map);
     service.nearbySearch(
-      { location: new google.maps.LatLng(location.lat, location.lng), radius: 50000, type: "police" },
+      { location: new google.maps.LatLng(location.lat, location.lng), radius: 2000, type: "police" },
       (results: any[], status: string) => {
         if (status === google.maps.places.PlacesServiceStatus.OK && results) {
           const found: Station[] = results.map((place: any) => ({
@@ -253,6 +248,7 @@ const NearbyStations = () => {
     );
   }, []);
 
+  // Init map + autocomplete
   useEffect(() => {
     if (!userLocation || !mapRef.current) return;
     const loadAndInit = () => {
@@ -263,25 +259,38 @@ const NearbyStations = () => {
         return;
       }
       const map = new google.maps.Map(mapRef.current, {
-        center: userLocation, zoom: 13,
+        center: userLocation, zoom: 14,
         mapTypeId: google.maps.MapTypeId.HYBRID,
         mapTypeControl: true,
         mapTypeControlOptions: { style: google.maps.MapTypeControlStyle.HORIZONTAL_BAR, position: google.maps.ControlPosition.TOP_RIGHT },
         zoomControl: true, streetViewControl: false, fullscreenControl: true,
       });
       mapInstanceRef.current = map;
-      new google.maps.Marker({
+      userMarkerRef.current = new google.maps.Marker({
         position: userLocation, map,
         icon: { path: google.maps.SymbolPath.CIRCLE, scale: 10, fillColor: "#2563EB", fillOpacity: 1, strokeColor: "#fff", strokeWeight: 3 },
         title: "Your Location", zIndex: 999,
       });
-      new google.maps.Circle({
+      radiusCircleRef.current = new google.maps.Circle({
         map, center: userLocation, radius: 2000,
-        fillColor: "#2563EB", fillOpacity: 0.05,
-        strokeColor: "#2563EB", strokeOpacity: 0.3, strokeWeight: 1,
+        fillColor: "#2563EB", fillOpacity: 0.08,
+        strokeColor: "#2563EB", strokeOpacity: 0.4, strokeWeight: 2,
       });
       setMapLoaded(true);
       searchNearbyStations(map, userLocation);
+
+      // Setup autocomplete
+      if (searchInputRef.current && !autocompleteRef.current) {
+        const ac = new google.maps.places.Autocomplete(searchInputRef.current, {
+          types: ["geocode", "establishment"],
+          componentRestrictions: { country: "in" },
+        });
+        ac.addListener("place_changed", () => {
+          const place = ac.getPlace();
+          handlePlaceSelected(place);
+        });
+        autocompleteRef.current = ac;
+      }
     };
 
     if (!(window as any).google?.maps?.places) {
@@ -309,29 +318,26 @@ const NearbyStations = () => {
     <div className="flex min-h-screen flex-col bg-background">
       <PageHeader title={t("nearbyStations")} subtitle={t("policeStationsNearYou")} />
       <main className="flex-1 space-y-4 px-5 py-6">
-        {/* Manual Location Picker */}
+        {/* Search Location */}
         <div className="flex items-center gap-2">
-          <Select onValueChange={handleCitySelect}>
-            <SelectTrigger className="flex-1 rounded-xl">
-              <SelectValue placeholder={t("selectCity") || "Select a city"} />
-            </SelectTrigger>
-            <SelectContent>
-              {CITIES.map(city => (
-                <SelectItem key={city.label} value={city.label}>
-                  {city.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              placeholder={t("searchLocation") || "Search for a location..."}
+              className="w-full rounded-xl border border-border bg-background pl-9 pr-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+            />
+          </div>
           <Button variant="outline" size="icon" className="rounded-xl shrink-0" onClick={handleUseMyLocation} title={t("useMyLocation") || "Use my location"}>
             <LocateFixed className="h-4 w-4" />
           </Button>
         </div>
 
-        {usingManualLocation && userLocation && (
+        {locationLabel && (
           <p className="text-xs text-muted-foreground flex items-center gap-1">
             <MapPin className="h-3 w-3 text-primary" />
-            {t("showingResultsFor") || "Showing results for"}: {CITIES.find(c => c.lat === userLocation.lat && c.lng === userLocation.lng)?.label || `${userLocation.lat.toFixed(4)}, ${userLocation.lng.toFixed(4)}`}
+            {t("showingResultsFor") || "Showing results for"}: {locationLabel}
           </p>
         )}
 
@@ -358,13 +364,6 @@ const NearbyStations = () => {
               <div ref={mapRef} className="h-full w-full" />
             </div>
 
-            {userLocation && !usingManualLocation && (
-              <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <MapPin className="h-3 w-3 text-primary" />
-                {t("yourLocation")}: {userLocation.lat.toFixed(4)}, {userLocation.lng.toFixed(4)}
-              </p>
-            )}
-
             {loading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -374,6 +373,7 @@ const NearbyStations = () => {
               <div className="flex flex-col items-center gap-2 py-8 text-center">
                 <MapPin className="h-8 w-8 text-muted-foreground/50" />
                 <p className="text-sm text-muted-foreground">{t("noStationsFound")}</p>
+                <p className="text-xs text-muted-foreground">No police stations found within 2 km radius</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -381,16 +381,18 @@ const NearbyStations = () => {
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     placeholder={t("searchStations")}
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    value={filterQuery}
+                    onChange={(e) => setFilterQuery(e.target.value)}
                     className="pl-9 rounded-xl"
                   />
                 </div>
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold text-foreground">{stations.filter((s) => s.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.address.toLowerCase().includes(searchQuery.toLowerCase())).length} {t("stationsFound")}</p>
+                  <p className="text-sm font-semibold text-foreground">
+                    {stations.filter((s) => s.name.toLowerCase().includes(filterQuery.toLowerCase()) || s.address.toLowerCase().includes(filterQuery.toLowerCase())).length} {t("stationsFound")} <span className="font-normal text-muted-foreground text-xs">(within 2 km)</span>
+                  </p>
                   <p className="text-xs text-muted-foreground">{t("tapToSeeRoute")}</p>
                 </div>
-                {stations.filter((s) => s.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.address.toLowerCase().includes(searchQuery.toLowerCase())).map((station, i) => (
+                {stations.filter((s) => s.name.toLowerCase().includes(filterQuery.toLowerCase()) || s.address.toLowerCase().includes(filterQuery.toLowerCase())).map((station, i) => (
                   <div
                     key={station.placeId || i}
                     className={`rounded-2xl border bg-card p-4 shadow-card transition-all hover:shadow-elevated cursor-pointer ${activeRoute === station.placeId ? "border-primary ring-2 ring-primary/20" : "border-border"}`}
