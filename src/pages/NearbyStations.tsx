@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import PageHeader from "@/components/PageHeader";
-import { MapPin, Clock, Navigation, Loader2, AlertCircle, Route, Car, Bike, Footprints, Search, ChevronDown, ChevronUp, CornerDownRight, LocateFixed } from "lucide-react";
+import { MapPin, Clock, Navigation, Loader2, AlertCircle, Route, Car, Bike, Footprints, Search, ChevronDown, ChevronUp, CornerDownRight, LocateFixed, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/useLanguage";
