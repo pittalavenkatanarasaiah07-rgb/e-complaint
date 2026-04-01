@@ -225,9 +225,9 @@ const SOSEmergency = () => {
                     <div key={i} className="rounded-xl border border-border bg-card p-3">
                       <div className="flex items-start gap-2">
                         {place.type === "police" ? (
-                          <Shield className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
+                          <Shield className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                         ) : (
-                          <Hospital className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+                          <Hospital className="mt-0.5 h-4 w-4 shrink-0 text-emergency" />
                         )}
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-semibold text-foreground truncate">{place.name}</p>
