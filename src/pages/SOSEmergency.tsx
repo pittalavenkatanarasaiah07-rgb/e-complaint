@@ -49,7 +49,7 @@ const SOSEmergency = () => {
     let allPlaces: NearbyPlace[] = [];
     let completed = 0;
 
-    const processResults = (results: google.maps.places.PlaceResult[] | null, type: "police" | "hospital") => {
+    const processResults = (results: any[] | null, type: "police" | "hospital") => {
       if (results) {
         const mapped: NearbyPlace[] = results.slice(0, 5).map((p) => ({
           name: p.name || "Unknown",
