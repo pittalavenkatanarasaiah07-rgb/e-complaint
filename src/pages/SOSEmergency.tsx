@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from "react";
+import PageHeader from "@/components/PageHeader";
 declare const google: any;
+declare global { interface Window { google: any; } }
 import { useLanguage } from "@/hooks/useLanguage";
 import { AlertTriangle, Phone, MapPin, Users, CheckCircle, Hospital, Shield, Navigation, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
