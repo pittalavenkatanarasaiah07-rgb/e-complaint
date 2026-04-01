@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import PageHeader from "@/components/PageHeader";
-import { MapPin, Clock, Navigation, Loader2, AlertCircle, Heart, Route, Car, Bike, Footprints, Search, ChevronDown, ChevronUp, CornerDownRight, LocateFixed } from "lucide-react";
+import { MapPin, Clock, Navigation, Loader2, AlertCircle, Heart, Route, Car, Bike, Footprints, Search, ChevronDown, ChevronUp, CornerDownRight, LocateFixed, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -372,6 +372,17 @@ const NearbyHospitals = () => {
                 </div>
               )}
               <div ref={mapRef} className="h-full w-full" />
+              {activeRoute && userLocation && (() => {
+                const dest = places.find(p => p.placeId === activeRoute);
+                if (!dest) return null;
+                const url = `https://www.google.com/maps/dir/${userLocation.lat},${userLocation.lng}/${dest.lat},${dest.lng}`;
+                return (
+                  <a href={url} target="_blank" rel="noopener noreferrer"
+                    className="absolute bottom-3 right-3 z-20 flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-elevated transition-transform hover:scale-105 active:scale-95">
+                    <ExternalLink className="h-4 w-4" /> Open in Google Maps
+                  </a>
+                );
+              })()}
             </div>
 
             {loading ? (
