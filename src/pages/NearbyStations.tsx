@@ -211,7 +211,8 @@ const NearbyStations = () => {
 
   const searchNearbyStations = useCallback(async (map: any, location: { lat: number; lng: number }) => {
     try {
-      const { Place, SearchNearbyRankPreference } = await google.maps.importLibrary("places") as any;
+      const g = (window as any).google;
+      const { Place, SearchNearbyRankPreference } = await g.maps.importLibrary("places") as any;
       const request = {
         fields: ["displayName", "location", "formattedAddress", "id", "businessStatus"],
         locationRestriction: {
