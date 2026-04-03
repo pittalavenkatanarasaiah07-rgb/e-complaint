@@ -250,9 +250,9 @@ const NearbyStations = () => {
           marker.addListener("click", () => showRouteRef.current(s));
         });
         if (found.length > 0) {
-          const bounds = new google.maps.LatLngBounds();
-          bounds.extend(new google.maps.LatLng(location.lat, location.lng));
-          found.forEach((s) => bounds.extend(new google.maps.LatLng(s.lat, s.lng)));
+          const bounds = new g.maps.LatLngBounds();
+          bounds.extend(new g.maps.LatLng(location.lat, location.lng));
+          found.forEach((s) => bounds.extend(new g.maps.LatLng(s.lat, s.lng)));
           map.fitBounds(bounds, 50);
         }
       }
