@@ -216,7 +216,7 @@ const NearbyStations = () => {
       const request = {
         fields: ["displayName", "location", "formattedAddress", "id", "businessStatus"],
         locationRestriction: {
-          center: new google.maps.LatLng(location.lat, location.lng),
+          center: new g.maps.LatLng(location.lat, location.lng),
           radius: 2000,
         },
         includedPrimaryTypes: ["police"],
