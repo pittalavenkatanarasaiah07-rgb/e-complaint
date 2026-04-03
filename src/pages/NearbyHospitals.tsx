@@ -206,7 +206,8 @@ const NearbyHospitals = () => {
 
   const searchNearbyPlaces = useCallback(async (map: any, location: { lat: number; lng: number }) => {
     try {
-      const { Place, SearchNearbyRankPreference } = await google.maps.importLibrary("places") as any;
+      const g = (window as any).google;
+      const { Place, SearchNearbyRankPreference } = await g.maps.importLibrary("places") as any;
       let allResults: Place[] = [];
       const searches = [
         { types: ["hospital"], placeType: "hospital" as const },
