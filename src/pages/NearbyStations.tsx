@@ -238,12 +238,12 @@ const NearbyStations = () => {
         markersRef.current.forEach((m) => m.setMap(null));
         markersRef.current = [];
         found.forEach((s) => {
-          const marker = new google.maps.Marker({
+          const marker = new g.maps.Marker({
             position: { lat: s.lat, lng: s.lng }, map, title: s.name,
             icon: {
               url: "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40"><path d="M16 0C7.2 0 0 7.2 0 16c0 12 16 24 16 24s16-12 16-24C32 7.2 24.8 0 16 0z" fill="#DC2626"/><path d="M16 0C7.2 0 0 7.2 0 16c0 12 16 24 16 24s16-12 16-24C32 7.2 24.8 0 16 0z" fill="none" stroke="#991B1B" stroke-width="1"/><text x="16" y="20" text-anchor="middle" font-size="16" font-weight="bold" fill="white" font-family="Arial">🛡</text></svg>'),
-              scaledSize: new google.maps.Size(32, 40),
-              anchor: new google.maps.Point(16, 40),
+              scaledSize: new g.maps.Size(32, 40),
+              anchor: new g.maps.Point(16, 40),
             },
           });
           markersRef.current.push(marker);
