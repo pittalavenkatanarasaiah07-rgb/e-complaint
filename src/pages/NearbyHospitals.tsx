@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/useLanguage";
 
-const GOOGLE_API_KEY = "AIzaSyB9xhzPAKgceRe1KpCOh8GX66Tr-eO6xDk";
+const GOOGLE_API_KEY = "AIzaSyASY-gWNWZtkBySNO9dvdpMzz5NtyfgYzQ";
 
 interface Place {
   name: string;

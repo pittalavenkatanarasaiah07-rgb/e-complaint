@@ -6,7 +6,7 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { AlertTriangle, Phone, MapPin, Users, CheckCircle, Hospital, Shield, Navigation, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const GOOGLE_API_KEY = "AIzaSyB9xhzPAKgceRe1KpCOh8GX66Tr-eO6xDk";
+const GOOGLE_API_KEY = "AIzaSyASY-gWNWZtkBySNO9dvdpMzz5NtyfgYzQ";
 
 interface NearbyPlace {
   name: string;
