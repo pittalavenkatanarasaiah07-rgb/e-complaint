@@ -39,66 +39,67 @@ const SOSEmergency = () => {
     }
   }, []);
 
-  const findNearbyPlaces = (lat: number, lng: number) => {
+  const findNearbyPlaces = async (lat: number, lng: number) => {
     setLoadingPlaces(true);
-    const loc = new google.maps.LatLng(lat, lng);
-    const div = document.createElement("div");
-    const map = new google.maps.Map(div);
-    const service = new google.maps.places.PlacesService(map);
-    const distService = new google.maps.DistanceMatrixService();
-    let allPlaces: NearbyPlace[] = [];
-    let completed = 0;
+    try {
+      const { Place, SearchNearbyRankPreference } = await google.maps.importLibrary("places") as any;
+      const distService = new google.maps.DistanceMatrixService();
+      const loc = new google.maps.LatLng(lat, lng);
+      let allPlaces: NearbyPlace[] = [];
 
-    const processResults = (results: any[] | null, type: "police" | "hospital") => {
-      if (results) {
-        const mapped: NearbyPlace[] = results.slice(0, 5).map((p) => ({
-          name: p.name || "Unknown",
-          address: p.vicinity || "",
-          phone: p.formatted_phone_number,
-          lat: p.geometry?.location?.lat() || 0,
-          lng: p.geometry?.location?.lng() || 0,
-          type,
-        }));
-        allPlaces = [...allPlaces, ...mapped];
-      }
-      completed++;
-      if (completed === 2) {
-        // Calculate distances
-        if (allPlaces.length > 0) {
-          const destinations = allPlaces.map((p) => new google.maps.LatLng(p.lat, p.lng));
-          distService.getDistanceMatrix(
-            { origins: [loc], destinations, travelMode: google.maps.TravelMode.DRIVING },
-            (res) => {
-              if (res?.rows[0]?.elements) {
-                res.rows[0].elements.forEach((el, i) => {
-                  if (el.status === "OK" && allPlaces[i]) {
-                    allPlaces[i].distance = el.distance?.text;
-                  }
-                });
-              }
-              allPlaces.sort((a, b) => {
-                const da = parseFloat(a.distance || "999");
-                const db = parseFloat(b.distance || "999");
-                return da - db;
-              });
-              setNearbyPlaces(allPlaces);
-              setLoadingPlaces(false);
-            }
-          );
-        } else {
-          setLoadingPlaces(false);
+      for (const type of ["police", "hospital"] as const) {
+        try {
+          const request = {
+            fields: ["displayName", "location", "formattedAddress", "id"],
+            locationRestriction: { center: loc, radius: 2000 },
+            includedPrimaryTypes: [type],
+            maxResultCount: 5,
+            rankPreference: SearchNearbyRankPreference.DISTANCE,
+          };
+          const { places: results } = await Place.searchNearby(request);
+          if (results) {
+            const mapped: NearbyPlace[] = results.map((p: any) => ({
+              name: p.displayName || "Unknown",
+              address: p.formattedAddress || "",
+              lat: p.location.lat(),
+              lng: p.location.lng(),
+              type,
+            }));
+            allPlaces = [...allPlaces, ...mapped];
+          }
+        } catch (e) {
+          console.error(`SOS search for ${type} failed:`, e);
         }
       }
-    };
 
-    service.nearbySearch(
-      { location: loc, radius: 2000, type: "police" },
-      (results, status) => processResults(status === google.maps.places.PlacesServiceStatus.OK ? results : null, "police")
-    );
-    service.nearbySearch(
-      { location: loc, radius: 2000, type: "hospital" },
-      (results, status) => processResults(status === google.maps.places.PlacesServiceStatus.OK ? results : null, "hospital")
-    );
+      if (allPlaces.length > 0) {
+        const destinations = allPlaces.map((p) => new google.maps.LatLng(p.lat, p.lng));
+        distService.getDistanceMatrix(
+          { origins: [loc], destinations, travelMode: google.maps.TravelMode.DRIVING },
+          (res: any) => {
+            if (res?.rows[0]?.elements) {
+              res.rows[0].elements.forEach((el: any, i: number) => {
+                if (el.status === "OK" && allPlaces[i]) {
+                  allPlaces[i].distance = el.distance?.text;
+                }
+              });
+            }
+            allPlaces.sort((a, b) => {
+              const da = parseFloat(a.distance || "999");
+              const db = parseFloat(b.distance || "999");
+              return da - db;
+            });
+            setNearbyPlaces(allPlaces);
+            setLoadingPlaces(false);
+          }
+        );
+      } else {
+        setLoadingPlaces(false);
+      }
+    } catch (e) {
+      console.error("SOS places search failed:", e);
+      setLoadingPlaces(false);
+    }
   };
 
   const handleActivate = () => {
