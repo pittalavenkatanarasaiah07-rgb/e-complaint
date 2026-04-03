@@ -204,59 +204,69 @@ const NearbyHospitals = () => {
 
   useEffect(() => { showRouteRef.current = showRoute; }, [showRoute]);
 
-  const searchNearbyPlaces = useCallback((map: any, location: { lat: number; lng: number }) => {
-    const google = (window as any).google;
-    const service = new google.maps.places.PlacesService(map);
-    let allResults: Place[] = [];
-    let completed = 0;
-    const searches = [
-      { type: "hospital", radius: 2000, placeType: "hospital" as const },
-      { type: "doctor", radius: 2000, placeType: "clinic" as const },
-    ];
-    searches.forEach(({ type, radius, placeType }) => {
-      service.nearbySearch(
-        { location: new google.maps.LatLng(location.lat, location.lng), radius, type: type as any },
-        (results: any[], status: string) => {
-          completed++;
-          if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+  const searchNearbyPlaces = useCallback(async (map: any, location: { lat: number; lng: number }) => {
+    try {
+      const g = (window as any).google;
+      const { Place, SearchNearbyRankPreference } = await g.maps.importLibrary("places") as any;
+      let allResults: Place[] = [];
+      const searches = [
+        { types: ["hospital"], placeType: "hospital" as const },
+        { types: ["doctor"], placeType: "clinic" as const },
+      ];
+      for (const { types, placeType } of searches) {
+        try {
+          const request = {
+            fields: ["displayName", "location", "formattedAddress", "id", "businessStatus"],
+            locationRestriction: {
+              center: new g.maps.LatLng(location.lat, location.lng),
+              radius: 2000,
+            },
+            includedPrimaryTypes: types,
+            maxResultCount: 20,
+            rankPreference: SearchNearbyRankPreference.DISTANCE,
+          };
+          const { places: results } = await Place.searchNearby(request);
+          if (results && results.length > 0) {
             const found: Place[] = results.map((place: any) => ({
-              name: place.name,
-              address: place.vicinity || place.formatted_address || "Address not available",
-              lat: place.geometry.location.lat(), lng: place.geometry.location.lng(),
-              open: place.opening_hours?.isOpen?.() ?? true,
-              placeId: place.place_id, type: placeType,
+              name: place.displayName || "Medical Facility",
+              address: place.formattedAddress || "Address not available",
+              lat: place.location.lat(), lng: place.location.lng(),
+              open: true,
+              placeId: place.id, type: placeType,
             }));
             allResults = [...allResults, ...found];
           }
-          if (completed === searches.length) {
-            const unique = Array.from(new Map(allResults.map((p) => [p.placeId, p])).values());
-            unique.sort((a, b) => getDistanceNum(location, a) - getDistanceNum(location, b));
-            setPlaces(unique);
-            markersRef.current.forEach((m) => m.setMap(null));
-            markersRef.current = [];
-            unique.forEach((s) => {
-              const marker = new google.maps.Marker({
-                position: { lat: s.lat, lng: s.lng }, map, title: s.name,
-                icon: {
-                  url: "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40"><path d="M16 0C7.2 0 0 7.2 0 16c0 12 16 24 16 24s16-12 16-24C32 7.2 24.8 0 16 0z" fill="#16A34A"/><path d="M16 0C7.2 0 0 7.2 0 16c0 12 16 24 16 24s16-12 16-24C32 7.2 24.8 0 16 0z" fill="none" stroke="#166534" stroke-width="1"/><rect x="13" y="8" width="6" height="16" rx="1" fill="white"/><rect x="8" y="13" width="16" height="6" rx="1" fill="white"/></svg>'),
-                  scaledSize: new google.maps.Size(32, 40),
-                  anchor: new google.maps.Point(16, 40),
-                },
-              });
-              markersRef.current.push(marker);
-              marker.addListener("click", () => showRouteRef.current(s));
-            });
-            if (unique.length > 0) {
-              const bounds = new google.maps.LatLngBounds();
-              bounds.extend(new google.maps.LatLng(location.lat, location.lng));
-              unique.forEach((s) => bounds.extend(new google.maps.LatLng(s.lat, s.lng)));
-              map.fitBounds(bounds, 50);
-            }
-            setLoading(false);
-          }
+        } catch (e) {
+          console.error(`Search for ${placeType} failed:`, e);
         }
-      );
-    });
+      }
+      const unique = Array.from(new Map(allResults.map((p) => [p.placeId, p])).values());
+      unique.sort((a, b) => getDistanceNum(location, a) - getDistanceNum(location, b));
+      setPlaces(unique);
+      markersRef.current.forEach((m) => m.setMap(null));
+      markersRef.current = [];
+      unique.forEach((s) => {
+        const marker = new g.maps.Marker({
+          position: { lat: s.lat, lng: s.lng }, map, title: s.name,
+          icon: {
+            url: "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40"><path d="M16 0C7.2 0 0 7.2 0 16c0 12 16 24 16 24s16-12 16-24C32 7.2 24.8 0 16 0z" fill="#16A34A"/><path d="M16 0C7.2 0 0 7.2 0 16c0 12 16 24 16 24s16-12 16-24C32 7.2 24.8 0 16 0z" fill="none" stroke="#166534" stroke-width="1"/><rect x="13" y="8" width="6" height="16" rx="1" fill="white"/><rect x="8" y="13" width="16" height="6" rx="1" fill="white"/></svg>'),
+            scaledSize: new g.maps.Size(32, 40),
+            anchor: new g.maps.Point(16, 40),
+          },
+        });
+        markersRef.current.push(marker);
+        marker.addListener("click", () => showRouteRef.current(s));
+      });
+      if (unique.length > 0) {
+        const bounds = new g.maps.LatLngBounds();
+        bounds.extend(new g.maps.LatLng(location.lat, location.lng));
+        unique.forEach((s) => bounds.extend(new g.maps.LatLng(s.lat, s.lng)));
+        map.fitBounds(bounds, 50);
+      }
+    } catch (e) {
+      console.error("Places search failed:", e);
+    }
+    setLoading(false);
   }, []);
 
   useEffect(() => {

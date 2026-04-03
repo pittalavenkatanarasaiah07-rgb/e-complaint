@@ -209,47 +209,57 @@ const NearbyStations = () => {
 
   useEffect(() => { showRouteRef.current = showRoute; }, [showRoute]);
 
-  const searchNearbyStations = useCallback((map: any, location: { lat: number; lng: number }) => {
-    const google = (window as any).google;
-    const service = new google.maps.places.PlacesService(map);
-    service.nearbySearch(
-      { location: new google.maps.LatLng(location.lat, location.lng), radius: 2000, type: "police" },
-      (results: any[], status: string) => {
-        if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-          const found: Station[] = results.map((place: any) => ({
-            name: place.name,
-            address: place.vicinity || place.formatted_address || "Address not available",
-            lat: place.geometry.location.lat(),
-            lng: place.geometry.location.lng(),
-            open: place.opening_hours?.isOpen?.() ?? true,
-            placeId: place.place_id,
-          }));
-          found.sort((a, b) => getDistanceNum(location, a) - getDistanceNum(location, b));
-          setStations(found);
-          markersRef.current.forEach((m) => m.setMap(null));
-          markersRef.current = [];
-          found.forEach((s) => {
-              const marker = new google.maps.Marker({
-                position: { lat: s.lat, lng: s.lng }, map, title: s.name,
-                icon: {
-                  url: "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40"><path d="M16 0C7.2 0 0 7.2 0 16c0 12 16 24 16 24s16-12 16-24C32 7.2 24.8 0 16 0z" fill="#DC2626"/><path d="M16 0C7.2 0 0 7.2 0 16c0 12 16 24 16 24s16-12 16-24C32 7.2 24.8 0 16 0z" fill="none" stroke="#991B1B" stroke-width="1"/><text x="16" y="20" text-anchor="middle" font-size="16" font-weight="bold" fill="white" font-family="Arial">🛡</text></svg>'),
-                  scaledSize: new google.maps.Size(32, 40),
-                  anchor: new google.maps.Point(16, 40),
-                },
-              });
-            markersRef.current.push(marker);
-            marker.addListener("click", () => showRouteRef.current(s));
+  const searchNearbyStations = useCallback(async (map: any, location: { lat: number; lng: number }) => {
+    try {
+      const g = (window as any).google;
+      const { Place, SearchNearbyRankPreference } = await g.maps.importLibrary("places") as any;
+      const request = {
+        fields: ["displayName", "location", "formattedAddress", "id", "businessStatus"],
+        locationRestriction: {
+          center: new g.maps.LatLng(location.lat, location.lng),
+          radius: 2000,
+        },
+        includedPrimaryTypes: ["police"],
+        maxResultCount: 20,
+        rankPreference: SearchNearbyRankPreference.DISTANCE,
+      };
+      const { places: results } = await Place.searchNearby(request);
+      if (results && results.length > 0) {
+        const found: Station[] = results.map((place: any) => ({
+          name: place.displayName || "Police Station",
+          address: place.formattedAddress || "Address not available",
+          lat: place.location.lat(),
+          lng: place.location.lng(),
+          open: true,
+          placeId: place.id,
+        }));
+        found.sort((a, b) => getDistanceNum(location, a) - getDistanceNum(location, b));
+        setStations(found);
+        markersRef.current.forEach((m) => m.setMap(null));
+        markersRef.current = [];
+        found.forEach((s) => {
+          const marker = new g.maps.Marker({
+            position: { lat: s.lat, lng: s.lng }, map, title: s.name,
+            icon: {
+              url: "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40"><path d="M16 0C7.2 0 0 7.2 0 16c0 12 16 24 16 24s16-12 16-24C32 7.2 24.8 0 16 0z" fill="#DC2626"/><path d="M16 0C7.2 0 0 7.2 0 16c0 12 16 24 16 24s16-12 16-24C32 7.2 24.8 0 16 0z" fill="none" stroke="#991B1B" stroke-width="1"/><text x="16" y="20" text-anchor="middle" font-size="16" font-weight="bold" fill="white" font-family="Arial">🛡</text></svg>'),
+              scaledSize: new g.maps.Size(32, 40),
+              anchor: new g.maps.Point(16, 40),
+            },
           });
-          if (found.length > 0) {
-            const bounds = new google.maps.LatLngBounds();
-            bounds.extend(new google.maps.LatLng(location.lat, location.lng));
-            found.forEach((s) => bounds.extend(new google.maps.LatLng(s.lat, s.lng)));
-            map.fitBounds(bounds, 50);
-          }
+          markersRef.current.push(marker);
+          marker.addListener("click", () => showRouteRef.current(s));
+        });
+        if (found.length > 0) {
+          const bounds = new g.maps.LatLngBounds();
+          bounds.extend(new g.maps.LatLng(location.lat, location.lng));
+          found.forEach((s) => bounds.extend(new g.maps.LatLng(s.lat, s.lng)));
+          map.fitBounds(bounds, 50);
         }
-        setLoading(false);
       }
-    );
+    } catch (e) {
+      console.error("Places search failed:", e);
+    }
+    setLoading(false);
   }, []);
 
   // Init map + autocomplete
