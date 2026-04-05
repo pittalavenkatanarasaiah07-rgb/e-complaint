@@ -61,6 +61,7 @@ const SOSEmergency = () => {
             const mapped: NearbyPlace[] = results.map((p: any) => ({
               name: p.displayName || "Unknown",
               address: p.formattedAddress || "",
+              phone: p.nationalPhoneNumber || undefined,
               lat: p.location.lat(),
               lng: p.location.lng(),
               type,
