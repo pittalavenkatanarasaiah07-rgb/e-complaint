@@ -50,7 +50,7 @@ const SOSEmergency = () => {
       for (const type of ["police", "hospital"] as const) {
         try {
           const request = {
-            fields: ["displayName", "location", "formattedAddress", "id"],
+            fields: ["displayName", "location", "formattedAddress", "nationalPhoneNumber", "id"],
             locationRestriction: { center: loc, radius: 2000 },
             includedPrimaryTypes: [type],
             maxResultCount: 5,
@@ -61,6 +61,7 @@ const SOSEmergency = () => {
             const mapped: NearbyPlace[] = results.map((p: any) => ({
               name: p.displayName || "Unknown",
               address: p.formattedAddress || "",
+              phone: p.nationalPhoneNumber || undefined,
               lat: p.location.lat(),
               lng: p.location.lng(),
               type,
