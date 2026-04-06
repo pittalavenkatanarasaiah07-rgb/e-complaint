@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import PageHeader from "@/components/PageHeader";
-import { FileText, Upload, CheckCircle, MapPin, LogIn } from "lucide-react";
+import { FileText, Upload, CheckCircle, MapPin, LogIn, Camera, X, Image } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -25,6 +25,10 @@ const FileComplaint = () => {
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const detectLocation = () => {
     if (!navigator.geolocation) { toast.error("Geolocation not supported"); return; }
@@ -34,13 +38,55 @@ const FileComplaint = () => {
     );
   };
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length + selectedFiles.length > 5) {
+      toast.error("Maximum 5 files allowed");
+      return;
+    }
+    setSelectedFiles((prev) => [...prev, ...files]);
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const uploadFiles = async (complaintId: string): Promise<string[]> => {
+    if (!user || selectedFiles.length === 0) return [];
+    const urls: string[] = [];
+    for (const file of selectedFiles) {
+      const ext = file.name.split(".").pop();
+      const path = `${user.id}/${complaintId}/${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from("complaint-evidence").upload(path, file);
+      if (!error) {
+        urls.push(path);
+      } else {
+        console.error("Upload error:", error);
+      }
+    }
+    return urls;
+  };
+
   const handleSubmit = async () => {
     if (!user) { toast.error("Please log in to file a complaint"); return; }
     if (!complaintType || !description) { toast.error("Please fill required fields"); return; }
     setLoading(true);
+    setUploading(selectedFiles.length > 0);
     const { data, error } = await supabase.from("complaints").insert({ user_id: user.id, complaint_type: complaintType, description, location, latitude: coords?.lat, longitude: coords?.lng }).select().single();
+    if (error) {
+      toast.error(error.message);
+      setLoading(false);
+      setUploading(false);
+      return;
+    }
+    // Upload evidence files
+    if (selectedFiles.length > 0) {
+      await uploadFiles(data.id);
+    }
+    setUploading(false);
     setLoading(false);
-    if (error) { toast.error(error.message); } else { setRefId(data.id.slice(0, 8).toUpperCase()); setSubmitted(true); }
+    setRefId(data.id.slice(0, 8).toUpperCase());
+    setSubmitted(true);
   };
 
   if (submitted) {
@@ -98,12 +144,56 @@ const FileComplaint = () => {
         </div>
         <div className="space-y-2">
           <Label className="text-sm font-medium text-foreground">{t("evidence")}</Label>
-          <div className="flex items-center gap-3 rounded-xl border border-dashed border-border bg-secondary/50 p-4">
-            <Upload className="h-5 w-5 text-muted-foreground" /><span className="text-sm text-muted-foreground">{t("uploadEvidence")}</span>
+          <div className="space-y-3">
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" className="flex-1 rounded-xl" onClick={() => cameraInputRef.current?.click()}>
+                <Camera className="mr-2 h-4 w-4" /> Take Photo
+              </Button>
+              <Button type="button" variant="outline" className="flex-1 rounded-xl" onClick={() => fileInputRef.current?.click()}>
+                <Image className="mr-2 h-4 w-4" /> Gallery
+              </Button>
+            </div>
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*,video/*"
+              capture="environment"
+              className="hidden"
+              onChange={handleFileSelect}
+            />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,video/*"
+              multiple
+              className="hidden"
+              onChange={handleFileSelect}
+            />
+            {selectedFiles.length > 0 && (
+              <div className="space-y-2">
+                {selectedFiles.map((file, i) => (
+                  <div key={i} className="flex items-center gap-2 rounded-lg border border-border bg-secondary/50 p-2">
+                    {file.type.startsWith("image/") ? (
+                      <img src={URL.createObjectURL(file)} alt="" className="h-10 w-10 rounded object-cover" />
+                    ) : (
+                      <div className="flex h-10 w-10 items-center justify-center rounded bg-muted"><Upload className="h-4 w-4 text-muted-foreground" /></div>
+                    )}
+                    <span className="flex-1 text-xs text-foreground truncate">{file.name}</span>
+                    <button onClick={() => removeFile(i)} className="shrink-0 text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
+                  </div>
+                ))}
+                <p className="text-xs text-muted-foreground">{selectedFiles.length}/5 files selected</p>
+              </div>
+            )}
+            {selectedFiles.length === 0 && (
+              <div className="flex items-center gap-3 rounded-xl border border-dashed border-border bg-secondary/50 p-4">
+                <Upload className="h-5 w-5 text-muted-foreground" /><span className="text-sm text-muted-foreground">{t("uploadEvidence")}</span>
+              </div>
+            )}
           </div>
         </div>
         <Button className="w-full rounded-xl py-6 text-base font-semibold shadow-elevated" onClick={handleSubmit} disabled={loading}>
-          <FileText className="mr-2 h-5 w-5" />{loading ? t("submitting") : t("submitComplaint")}
+          <FileText className="mr-2 h-5 w-5" />{uploading ? "Uploading evidence..." : loading ? t("submitting") : t("submitComplaint")}
         </Button>
       </main>
     </div>

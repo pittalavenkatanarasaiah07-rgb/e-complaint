@@ -43,7 +43,6 @@ const SOSEmergency = () => {
     setLoadingPlaces(true);
     try {
       const { Place, SearchNearbyRankPreference } = await google.maps.importLibrary("places") as any;
-      const distService = new google.maps.DistanceMatrixService();
       const loc = new google.maps.LatLng(lat, lng);
       let allPlaces: NearbyPlace[] = [];
 
@@ -73,30 +72,25 @@ const SOSEmergency = () => {
         }
       }
 
-      if (allPlaces.length > 0) {
-        const destinations = allPlaces.map((p) => new google.maps.LatLng(p.lat, p.lng));
-        distService.getDistanceMatrix(
-          { origins: [loc], destinations, travelMode: google.maps.TravelMode.DRIVING },
-          (res: any) => {
-            if (res?.rows[0]?.elements) {
-              res.rows[0].elements.forEach((el: any, i: number) => {
-                if (el.status === "OK" && allPlaces[i]) {
-                  allPlaces[i].distance = el.distance?.text;
-                }
-              });
-            }
-            allPlaces.sort((a, b) => {
-              const da = parseFloat(a.distance || "999");
-              const db = parseFloat(b.distance || "999");
-              return da - db;
-            });
-            setNearbyPlaces(allPlaces);
-            setLoadingPlaces(false);
-          }
-        );
-      } else {
-        setLoadingPlaces(false);
-      }
+      // Sort by haversine distance instead of using DistanceMatrix API
+      allPlaces.sort((a, b) => {
+        const distA = Math.sqrt((a.lat - lat) ** 2 + (a.lng - lng) ** 2);
+        const distB = Math.sqrt((b.lat - lat) ** 2 + (b.lng - lng) ** 2);
+        return distA - distB;
+      });
+
+      // Calculate distance text using haversine
+      allPlaces.forEach((p) => {
+        const R = 6371;
+        const dLat = ((p.lat - lat) * Math.PI) / 180;
+        const dLng = ((p.lng - lng) * Math.PI) / 180;
+        const a2 = Math.sin(dLat / 2) ** 2 + Math.cos((lat * Math.PI) / 180) * Math.cos((p.lat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+        const dist = R * 2 * Math.atan2(Math.sqrt(a2), Math.sqrt(1 - a2));
+        p.distance = `${dist.toFixed(1)} km`;
+      });
+
+      setNearbyPlaces(allPlaces);
+      setLoadingPlaces(false);
     } catch (e) {
       console.error("SOS places search failed:", e);
       setLoadingPlaces(false);
@@ -136,11 +130,14 @@ const SOSEmergency = () => {
 
   const callPlace = (place: NearbyPlace) => {
     if (place.phone) {
-      window.open(`tel:${place.phone}`);
+      window.location.href = `tel:${place.phone}`;
     } else {
-      // Fallback to emergency numbers
-      window.open(`tel:${place.type === "police" ? "100" : "108"}`);
+      window.location.href = `tel:${place.type === "police" ? "100" : "108"}`;
     }
+  };
+
+  const callEmergency = (number: string) => {
+    window.location.href = `tel:${number}`;
   };
 
   return (
@@ -166,15 +163,15 @@ const SOSEmergency = () => {
             </div>
 
             <div className="grid w-full max-w-sm grid-cols-3 gap-3">
-              <a href="tel:100" className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-card p-4 transition-all hover:shadow-card">
+              <button onClick={() => callEmergency("100")} className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-card p-4 transition-all hover:shadow-card">
                 <Phone className="h-6 w-6 text-emergency" /><span className="text-xs font-medium text-foreground">{t("police")}</span>
-              </a>
-              <a href="tel:108" className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-card p-4 transition-all hover:shadow-card">
+              </button>
+              <button onClick={() => callEmergency("108")} className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-card p-4 transition-all hover:shadow-card">
                 <Phone className="h-6 w-6 text-primary" /><span className="text-xs font-medium text-foreground">{t("ambulance")}</span>
-              </a>
-              <a href="tel:181" className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-card p-4 transition-all hover:shadow-card">
+              </button>
+              <button onClick={() => callEmergency("181")} className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-card p-4 transition-all hover:shadow-card">
                 <Users className="h-6 w-6 text-primary" /><span className="text-xs font-medium text-foreground">{t("women")}</span>
-              </a>
+              </button>
             </div>
           </>
         ) : (
@@ -200,15 +197,15 @@ const SOSEmergency = () => {
 
             {/* Quick dial */}
             <div className="grid w-full max-w-sm grid-cols-3 gap-3">
-              <a href="tel:100" className="flex flex-col items-center gap-1.5 rounded-2xl border border-border bg-card p-3 transition-all hover:shadow-card">
+              <button onClick={() => callEmergency("100")} className="flex flex-col items-center gap-1.5 rounded-2xl border border-border bg-card p-3 transition-all hover:shadow-card">
                 <Phone className="h-5 w-5 text-emergency" /><span className="text-[11px] font-medium">{t("police")}</span>
-              </a>
-              <a href="tel:108" className="flex flex-col items-center gap-1.5 rounded-2xl border border-border bg-card p-3 transition-all hover:shadow-card">
+              </button>
+              <button onClick={() => callEmergency("108")} className="flex flex-col items-center gap-1.5 rounded-2xl border border-border bg-card p-3 transition-all hover:shadow-card">
                 <Phone className="h-5 w-5 text-primary" /><span className="text-[11px] font-medium">{t("ambulance")}</span>
-              </a>
-              <a href="tel:181" className="flex flex-col items-center gap-1.5 rounded-2xl border border-border bg-card p-3 transition-all hover:shadow-card">
+              </button>
+              <button onClick={() => callEmergency("181")} className="flex flex-col items-center gap-1.5 rounded-2xl border border-border bg-card p-3 transition-all hover:shadow-card">
                 <Users className="h-5 w-5 text-primary" /><span className="text-[11px] font-medium">{t("women")}</span>
-              </a>
+              </button>
             </div>
 
             {/* Nearby places */}
