@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import PageHeader from "@/components/PageHeader";
-import { MapPin, Clock, Navigation, Loader2, AlertCircle, Route, Car, Bike, Footprints, Search, ChevronDown, ChevronUp, CornerDownRight, LocateFixed, ExternalLink } from "lucide-react";
+import { MapPin, Clock, Navigation, Loader2, AlertCircle, Route, Car, Bike, Footprints, ChevronDown, ChevronUp, CornerDownRight, LocateFixed, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -29,11 +29,11 @@ const NearbyStations = () => {
   const directionsRendererRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
   const showRouteRef = useRef<(station: Station) => void>(() => {});
-  const searchInputRef = useRef<HTMLInputElement>(null);
-  const autocompleteRef = useRef<any>(null);
   const watchIdRef = useRef<number | null>(null);
   const userMarkerRef = useRef<any>(null);
   const radiusCircleRef = useRef<any>(null);
+  const mapInitializedRef = useRef(false);
+  const lastSearchTimeRef = useRef(0);
 
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [stations, setStations] = useState<Station[]>([]);
@@ -49,7 +49,7 @@ const NearbyStations = () => {
 
   const { t } = useLanguage();
 
-  // Watch live location
+  // Watch live location - only update marker, don't reinit map
   useEffect(() => {
     if (!navigator.geolocation) {
       setUserLocation({ lat: 28.6139, lng: 77.2090 });
@@ -59,64 +59,25 @@ const NearbyStations = () => {
     watchIdRef.current = navigator.geolocation.watchPosition(
       (pos) => {
         const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        setUserLocation(loc);
+        if (!userLocation) {
+          setUserLocation(loc);
+        }
         setLocationLabel(`${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}`);
-        // Update user marker position if map exists
-        if (userMarkerRef.current) {
-          userMarkerRef.current.setPosition(loc);
-        }
-        if (radiusCircleRef.current) {
-          radiusCircleRef.current.setCenter(loc);
-        }
+        if (userMarkerRef.current) userMarkerRef.current.setPosition(loc);
+        if (radiusCircleRef.current) radiusCircleRef.current.setCenter(loc);
       },
       () => {
-        setUserLocation({ lat: 28.6139, lng: 77.2090 });
-        setLocationLabel("Delhi (default)");
+        if (!userLocation) {
+          setUserLocation({ lat: 28.6139, lng: 77.2090 });
+          setLocationLabel("Delhi (default)");
+        }
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 15000 }
     );
     return () => {
       if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
     };
   }, []);
-
-  const resetMapState = () => {
-    setLoading(true);
-    setStations([]);
-    setActiveRoute(null);
-    setMapLoaded(false);
-    if (directionsRendererRef.current) directionsRendererRef.current.setMap(null);
-    markersRef.current.forEach(m => m.setMap(null));
-    markersRef.current = [];
-    userMarkerRef.current = null;
-    radiusCircleRef.current = null;
-    mapInstanceRef.current = null;
-  };
-
-  const handleUseMyLocation = () => {
-    if (!navigator.geolocation) return;
-    resetMapState();
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        setLocationLabel(`${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}`);
-        setUserLocation({ ...loc }); // new ref to trigger useEffect
-      },
-      () => { setLoading(false); },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-  };
-
-  const handlePlaceSelected = (place: any) => {
-    if (!place.geometry) return;
-    resetMapState();
-    const loc = {
-      lat: place.geometry.location.lat(),
-      lng: place.geometry.location.lng(),
-    };
-    setLocationLabel(place.formatted_address || place.name || `${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}`);
-    setUserLocation(loc);
-  };
 
   const getDistanceNum = (from: { lat: number; lng: number }, to: { lat: number; lng: number }) => {
     const R = 6371;
@@ -132,35 +93,17 @@ const NearbyStations = () => {
   };
 
   const fetchTravelTimes = useCallback((destination: Station) => {
-    const google = (window as any).google;
-    if (!userLocation || !google) return;
-    const service = new google.maps.DistanceMatrixService();
-    const origin = new google.maps.LatLng(userLocation.lat, userLocation.lng);
-    const dest = new google.maps.LatLng(destination.lat, destination.lng);
-    const info: TravelInfo = { walking: "...", twoWheeler: "...", fourWheeler: "..." };
-    [
-      { mode: google.maps.TravelMode.WALKING, key: "walking" },
-      { mode: google.maps.TravelMode.DRIVING, key: "fourWheeler" },
-    ].forEach(({ mode, key }) => {
-      service.getDistanceMatrix(
-        { origins: [origin], destinations: [dest], travelMode: mode },
-        (response: any, status: string) => {
-          if (status === "OK" && response.rows[0]?.elements[0]?.status === "OK") {
-            const duration = response.rows[0].elements[0].duration.text;
-            if (key === "walking") {
-              info.walking = duration;
-            } else {
-              info.fourWheeler = duration;
-              const seconds = response.rows[0].elements[0].duration.value;
-              const twoWheelerSec = Math.round(seconds * 0.8);
-              const mins = Math.round(twoWheelerSec / 60);
-              info.twoWheeler = mins < 60 ? `${mins} mins` : `${Math.floor(mins / 60)} hr ${mins % 60} mins`;
-            }
-            setTravelTimes((prev) => ({ ...prev, [destination.placeId || ""]: { ...info } }));
-          }
-        }
-      );
-    });
+    if (!userLocation) return;
+    const dist = getDistanceNum(userLocation, destination);
+    const walkMins = Math.round((dist / 5) * 60);
+    const driveMins = Math.round((dist / 30) * 60);
+    const bikeMins = Math.round((dist / 25) * 60);
+    const info: TravelInfo = {
+      walking: walkMins < 60 ? `${walkMins} mins` : `${Math.floor(walkMins / 60)} hr ${walkMins % 60} mins`,
+      twoWheeler: bikeMins < 60 ? `${bikeMins} mins` : `${Math.floor(bikeMins / 60)} hr ${bikeMins % 60} mins`,
+      fourWheeler: driveMins < 60 ? `${driveMins} mins` : `${Math.floor(driveMins / 60)} hr ${driveMins % 60} mins`,
+    };
+    setTravelTimes((prev) => ({ ...prev, [destination.placeId || ""]: info }));
   }, [userLocation]);
 
   const showRoute = useCallback((destination: Station) => {
@@ -210,6 +153,12 @@ const NearbyStations = () => {
   useEffect(() => { showRouteRef.current = showRoute; }, [showRoute]);
 
   const searchNearbyStations = useCallback(async (map: any, location: { lat: number; lng: number }) => {
+    const now = Date.now();
+    if (now - lastSearchTimeRef.current < 15000) {
+      setLoading(false);
+      return;
+    }
+    lastSearchTimeRef.current = now;
     try {
       const g = (window as any).google;
       const { Place, SearchNearbyRankPreference } = await g.maps.importLibrary("places") as any;
@@ -262,9 +211,9 @@ const NearbyStations = () => {
     setLoading(false);
   }, []);
 
-  // Init map + autocomplete
+  // Init map only once
   useEffect(() => {
-    if (!userLocation || !mapRef.current) return;
+    if (!userLocation || !mapRef.current || mapInitializedRef.current) return;
     const loadAndInit = () => {
       const google = (window as any).google;
       if (!google?.maps) {
@@ -272,6 +221,7 @@ const NearbyStations = () => {
         setLoading(false);
         return;
       }
+      mapInitializedRef.current = true;
       const map = new google.maps.Map(mapRef.current, {
         center: userLocation, zoom: 14,
         mapTypeId: google.maps.MapTypeId.HYBRID,
@@ -292,19 +242,6 @@ const NearbyStations = () => {
       });
       setMapLoaded(true);
       searchNearbyStations(map, userLocation);
-
-      // Setup autocomplete
-      if (searchInputRef.current && !autocompleteRef.current) {
-        const ac = new google.maps.places.Autocomplete(searchInputRef.current, {
-          types: ["geocode", "establishment"],
-          componentRestrictions: { country: "in" },
-        });
-        ac.addListener("place_changed", () => {
-          const place = ac.getPlace();
-          handlePlaceSelected(place);
-        });
-        autocompleteRef.current = ac;
-      }
     };
 
     if (!(window as any).google?.maps?.places) {
@@ -328,32 +265,44 @@ const NearbyStations = () => {
     scrollToMap();
   };
 
+  const handleUseMyLocation = () => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setLocationLabel(`${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}`);
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.setCenter(loc);
+          if (userMarkerRef.current) userMarkerRef.current.setPosition(loc);
+          if (radiusCircleRef.current) radiusCircleRef.current.setCenter(loc);
+          setUserLocation(loc);
+          searchNearbyStations(mapInstanceRef.current, loc);
+        }
+      },
+      () => {},
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  const filteredStations = stations.filter((s) =>
+    s.name.toLowerCase().includes(filterQuery.toLowerCase()) ||
+    s.address.toLowerCase().includes(filterQuery.toLowerCase())
+  );
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <PageHeader title={t("nearbyStations")} subtitle={t("policeStationsNearYou")} />
       <main className="flex-1 space-y-4 px-5 py-6">
-        {/* Search Location */}
         <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              ref={searchInputRef}
-              type="text"
-              placeholder={t("searchLocation") || "Search for a location..."}
-              className="w-full rounded-xl border border-border bg-background pl-9 pr-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
-            />
-          </div>
-          <Button variant="outline" size="icon" className="rounded-xl shrink-0" onClick={handleUseMyLocation} title={t("useMyLocation") || "Use my location"}>
-            <LocateFixed className="h-4 w-4" />
+          <Button variant="outline" size="sm" className="rounded-xl" onClick={handleUseMyLocation}>
+            <LocateFixed className="mr-1 h-4 w-4" /> My Location
           </Button>
+          {locationLabel && (
+            <p className="text-xs text-muted-foreground flex items-center gap-1">
+              <MapPin className="h-3 w-3 text-primary" /> {locationLabel}
+            </p>
+          )}
         </div>
-
-        {locationLabel && (
-          <p className="text-xs text-muted-foreground flex items-center gap-1">
-            <MapPin className="h-3 w-3 text-primary" />
-            {t("showingResultsFor") || "Showing results for"}: {locationLabel}
-          </p>
-        )}
 
         {locationError ? (
           <div className="flex flex-col items-center gap-4 rounded-2xl border border-border bg-card p-8 text-center">
@@ -403,21 +352,20 @@ const NearbyStations = () => {
             ) : (
               <div className="space-y-3">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     placeholder={t("searchStations")}
                     value={filterQuery}
                     onChange={(e) => setFilterQuery(e.target.value)}
-                    className="pl-9 rounded-xl"
+                    className="rounded-xl"
                   />
                 </div>
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-semibold text-foreground">
-                    {stations.filter((s) => s.name.toLowerCase().includes(filterQuery.toLowerCase()) || s.address.toLowerCase().includes(filterQuery.toLowerCase())).length} {t("stationsFound")} <span className="font-normal text-muted-foreground text-xs">(within 2 km)</span>
+                    {filteredStations.length} {t("stationsFound")} <span className="font-normal text-muted-foreground text-xs">(within 2 km)</span>
                   </p>
                   <p className="text-xs text-muted-foreground">{t("tapToSeeRoute")}</p>
                 </div>
-                {stations.filter((s) => s.name.toLowerCase().includes(filterQuery.toLowerCase()) || s.address.toLowerCase().includes(filterQuery.toLowerCase())).map((station, i) => (
+                {filteredStations.map((station, i) => (
                   <div
                     key={station.placeId || i}
                     className={`rounded-2xl border bg-card p-4 shadow-card transition-all hover:shadow-elevated cursor-pointer ${activeRoute === station.placeId ? "border-primary ring-2 ring-primary/20" : "border-border"}`}
