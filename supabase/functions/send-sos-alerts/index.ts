@@ -2,6 +2,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.98.0";
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
+const GATEWAY_URL = "https://connector-gateway.lovable.dev/twilio";
+
 const BodySchema = z.object({
   latitude: z.number(),
   longitude: z.number(),
@@ -22,8 +24,8 @@ Deno.serve(async (req) => {
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Verify user
     const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!);
@@ -52,10 +54,11 @@ Deno.serve(async (req) => {
       .eq("user_id", user.id);
 
     if (contactsError || !contacts || contacts.length === 0) {
-      return new Response(JSON.stringify({ 
-        success: false, 
+      return new Response(JSON.stringify({
+        success: false,
         message: "No emergency contacts found. Add contacts in Emergency Contacts page.",
-        notified: 0 
+        notified: 0,
+        total: 0,
       }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -64,49 +67,101 @@ Deno.serve(async (req) => {
 
     const mapsLink = `https://www.google.com/maps?q=${latitude},${longitude}`;
     const userName = user.user_metadata?.full_name || user.email || "Someone";
-    const message = `🚨 SOS EMERGENCY ALERT!\n\n${userName} has activated an emergency SOS alert and needs help!\n\nLive Location: ${mapsLink}\n\nPlease contact them immediately or call emergency services (100 - Police, 108 - Ambulance).`;
+    const smsBody = `🚨 SOS EMERGENCY!\n\n${userName} needs help!\n\nLocation: ${mapsLink}\n\nCall 100 (Police) or 108 (Ambulance).`;
 
-    // Check if Twilio is configured
-    const twilioSid = Deno.env.get("TWILIO_ACCOUNT_SID");
-    const twilioToken = Deno.env.get("TWILIO_AUTH_TOKEN");
-    const twilioFrom = Deno.env.get("TWILIO_PHONE_NUMBER");
+    // Check for Twilio gateway credentials
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      console.error("LOVABLE_API_KEY is not configured");
+      return new Response(JSON.stringify({
+        success: false,
+        message: "SMS service not configured",
+        notified: 0,
+        total: contacts.length,
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    const results: { name: string; phone: string; sent: boolean; method: string }[] = [];
+    const TWILIO_API_KEY = Deno.env.get("TWILIO_API_KEY");
+    if (!TWILIO_API_KEY) {
+      console.error("TWILIO_API_KEY is not configured");
+      return new Response(JSON.stringify({
+        success: false,
+        message: "SMS service not configured",
+        notified: 0,
+        total: contacts.length,
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    if (twilioSid && twilioToken && twilioFrom) {
-      // Send via Twilio
-      for (const contact of contacts) {
-        try {
-          const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`;
-          const resp = await fetch(twilioUrl, {
-            method: "POST",
-            headers: {
-              "Authorization": "Basic " + btoa(`${twilioSid}:${twilioToken}`),
-              "Content-Type": "application/x-www-form-urlencoded",
-            },
-            body: new URLSearchParams({
-              To: contact.phone,
-              From: twilioFrom,
-              Body: message,
-            }),
-          });
-          results.push({ name: contact.name, phone: contact.phone, sent: resp.ok, method: "sms" });
-        } catch (e) {
-          results.push({ name: contact.name, phone: contact.phone, sent: false, method: "sms" });
-        }
+    // Get Twilio phone numbers to find a From number
+    let fromNumber = "";
+    try {
+      const numResp = await fetch(`${GATEWAY_URL}/IncomingPhoneNumbers.json`, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+          "X-Connection-Api-Key": TWILIO_API_KEY,
+        },
+      });
+      const numData = await numResp.json();
+      if (numData.incoming_phone_numbers && numData.incoming_phone_numbers.length > 0) {
+        fromNumber = numData.incoming_phone_numbers[0].phone_number;
       }
-    } else {
-      // No SMS provider configured - log the alert
-      for (const contact of contacts) {
-        console.log(`[SOS ALERT] Would send SMS to ${contact.name} (${contact.phone}): ${message}`);
-        results.push({ name: contact.name, phone: contact.phone, sent: false, method: "no_sms_provider" });
+    } catch (e) {
+      console.error("Failed to get Twilio phone numbers:", e);
+    }
+
+    if (!fromNumber) {
+      return new Response(JSON.stringify({
+        success: false,
+        message: "No Twilio phone number available. Please configure a Twilio phone number.",
+        notified: 0,
+        total: contacts.length,
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const results: { name: string; phone: string; sent: boolean }[] = [];
+
+    for (const contact of contacts) {
+      try {
+        const resp = await fetch(`${GATEWAY_URL}/Messages.json`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+            "X-Connection-Api-Key": TWILIO_API_KEY,
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: new URLSearchParams({
+            To: contact.phone,
+            From: fromNumber,
+            Body: smsBody,
+          }),
+        });
+        const data = await resp.json();
+        results.push({ name: contact.name, phone: contact.phone, sent: resp.ok });
+        if (!resp.ok) {
+          console.error(`SMS to ${contact.phone} failed [${resp.status}]:`, JSON.stringify(data));
+        }
+      } catch (e) {
+        console.error(`SMS to ${contact.phone} error:`, e);
+        results.push({ name: contact.name, phone: contact.phone, sent: false });
       }
     }
 
+    const notified = results.filter(r => r.sent).length;
+
     return new Response(JSON.stringify({
       success: true,
-      message: twilioSid ? "SOS alerts sent via SMS" : "SOS alert recorded. Configure SMS provider for real notifications.",
-      notified: results.filter(r => r.sent).length,
+      message: `SOS alerts sent to ${notified}/${contacts.length} contacts`,
+      notified,
       total: contacts.length,
       results,
     }), {
