@@ -1,4 +1,4 @@
-import { FileText, AlertTriangle, MapPin, Phone, ClipboardList, LogOut, Heart, LogIn } from "lucide-react";
+import { FileText, AlertTriangle, MapPin, Phone, ClipboardList, LogOut, Heart, LogIn, UserPlus } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
