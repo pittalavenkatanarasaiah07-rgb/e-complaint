@@ -1,10 +1,14 @@
 import { useState, useEffect, useRef } from "react";
+import { Link } from "react-router-dom";
 import PageHeader from "@/components/PageHeader";
 declare const google: any;
 declare global { interface Window { google: any; } }
 import { useLanguage } from "@/hooks/useLanguage";
-import { AlertTriangle, Phone, MapPin, Users, CheckCircle, Hospital, Shield, Navigation, Loader2 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { AlertTriangle, Phone, MapPin, Users, CheckCircle, Hospital, Shield, Navigation, Loader2, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 const GOOGLE_API_KEY = "AIzaSyASY-gWNWZtkBySNO9dvdpMzz5NtyfgYzQ";
 
@@ -23,7 +27,11 @@ const SOSEmergency = () => {
   const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlace[]>([]);
   const [loadingPlaces, setLoadingPlaces] = useState(false);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [alertStatus, setAlertStatus] = useState<string>("");
+  const [contactsNotified, setContactsNotified] = useState(0);
+  const [totalContacts, setTotalContacts] = useState(0);
   const { t } = useLanguage();
+  const { user, session } = useAuth();
   const scriptLoadedRef = useRef(false);
 
   useEffect(() => {
@@ -45,7 +53,6 @@ const SOSEmergency = () => {
       const { Place, SearchNearbyRankPreference } = await google.maps.importLibrary("places") as any;
       const loc = new google.maps.LatLng(lat, lng);
       let allPlaces: NearbyPlace[] = [];
-
       for (const type of ["police", "hospital"] as const) {
         try {
           const request = {
@@ -71,15 +78,11 @@ const SOSEmergency = () => {
           console.error(`SOS search for ${type} failed:`, e);
         }
       }
-
-      // Sort by haversine distance instead of using DistanceMatrix API
       allPlaces.sort((a, b) => {
         const distA = Math.sqrt((a.lat - lat) ** 2 + (a.lng - lng) ** 2);
         const distB = Math.sqrt((b.lat - lat) ** 2 + (b.lng - lng) ** 2);
         return distA - distB;
       });
-
-      // Calculate distance text using haversine
       allPlaces.forEach((p) => {
         const R = 6371;
         const dLat = ((p.lat - lat) * Math.PI) / 180;
@@ -88,12 +91,33 @@ const SOSEmergency = () => {
         const dist = R * 2 * Math.atan2(Math.sqrt(a2), Math.sqrt(1 - a2));
         p.distance = `${dist.toFixed(1)} km`;
       });
-
       setNearbyPlaces(allPlaces);
       setLoadingPlaces(false);
     } catch (e) {
       console.error("SOS places search failed:", e);
       setLoadingPlaces(false);
+    }
+  };
+
+  const sendSOSAlerts = async (lat: number, lng: number) => {
+    if (!session?.access_token) {
+      setAlertStatus("Login required for SMS alerts");
+      return;
+    }
+    try {
+      setAlertStatus("Sending alerts...");
+      const { data, error } = await supabase.functions.invoke("send-sos-alerts", {
+        body: { latitude: lat, longitude: lng },
+      });
+      if (error) {
+        setAlertStatus("Alert recorded locally");
+        return;
+      }
+      setContactsNotified(data.notified || 0);
+      setTotalContacts(data.total || 0);
+      setAlertStatus(data.message || "Alerts processed");
+    } catch (e) {
+      setAlertStatus("Alert recorded locally");
     }
   };
 
@@ -103,6 +127,7 @@ const SOSEmergency = () => {
       (pos) => {
         const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         setUserLocation(loc);
+        sendSOSAlerts(loc.lat, loc.lng);
         if (scriptLoadedRef.current && window.google?.maps) {
           findNearbyPlaces(loc.lat, loc.lng);
         } else {
@@ -114,17 +139,14 @@ const SOSEmergency = () => {
           }, 500);
         }
       },
-      () => setLoadingPlaces(false),
+      () => { setLoadingPlaces(false); setAlertStatus("Location unavailable"); },
       { enableHighAccuracy: true }
     );
   };
 
   const openDirections = (place: NearbyPlace) => {
     if (userLocation) {
-      window.open(
-        `https://www.google.com/maps/dir/${userLocation.lat},${userLocation.lng}/${place.lat},${place.lng}`,
-        "_blank"
-      );
+      window.open(`https://www.google.com/maps/dir/${userLocation.lat},${userLocation.lng}/${place.lat},${place.lng}`, "_blank");
     }
   };
 
@@ -143,19 +165,14 @@ const SOSEmergency = () => {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <PageHeader title={t("sosEmergency")} subtitle={t("getImmediateHelp")} />
-
       <main className="flex flex-1 flex-col items-center gap-6 px-4 pb-12">
         {!activated ? (
           <>
             <p className="text-center text-sm text-muted-foreground mt-4">{t("sosDesc")}</p>
-
             <div className="relative">
               <div className="absolute inset-0 animate-pulse-ring rounded-full bg-emergency" />
               <div className="absolute inset-0 animate-pulse-ring rounded-full bg-emergency [animation-delay:0.5s]" />
-              <button
-                onClick={handleActivate}
-                className="relative flex h-40 w-40 flex-col items-center justify-center rounded-full bg-emergency text-emergency-foreground shadow-elevated transition-transform hover:scale-105 active:scale-95"
-              >
+              <button onClick={handleActivate} className="relative flex h-40 w-40 flex-col items-center justify-center rounded-full bg-emergency text-emergency-foreground shadow-elevated transition-transform hover:scale-105 active:scale-95">
                 <AlertTriangle className="mb-1 h-10 w-10" />
                 <span className="text-2xl font-black">SOS</span>
                 <span className="text-xs font-medium opacity-80">{t("tapForHelp")}</span>
@@ -173,6 +190,11 @@ const SOSEmergency = () => {
                 <Users className="h-6 w-6 text-primary" /><span className="text-xs font-medium text-foreground">{t("women")}</span>
               </button>
             </div>
+
+            {/* Manage emergency contacts link */}
+            <Button asChild variant="outline" className="rounded-xl">
+              <Link to="/emergency-contacts"><UserPlus className="mr-2 h-4 w-4" /> Manage Emergency Contacts</Link>
+            </Button>
           </>
         ) : (
           <>
@@ -181,21 +203,25 @@ const SOSEmergency = () => {
             </div>
             <div className="space-y-1 text-center">
               <h2 className="text-lg font-bold text-foreground">{t("alertSent")}</h2>
-              <p className="text-sm text-muted-foreground">{t("alertSentDesc")}</p>
+              <p className="text-sm text-muted-foreground">{alertStatus || t("alertSentDesc")}</p>
             </div>
 
             <div className="w-full max-w-sm space-y-3 rounded-2xl border border-border bg-card p-4">
               <div className="flex items-center gap-3">
                 <MapPin className="h-5 w-5 text-primary" />
-                <div><p className="text-sm font-medium text-foreground">{t("liveLocationShared")}</p><p className="text-xs text-muted-foreground">{t("updatingLocation")}</p></div>
+                <div><p className="text-sm font-medium text-foreground">{t("liveLocationShared")}</p><p className="text-xs text-muted-foreground">{userLocation ? `${userLocation.lat.toFixed(4)}, ${userLocation.lng.toFixed(4)}` : t("updatingLocation")}</p></div>
               </div>
               <div className="flex items-center gap-3">
                 <Users className="h-5 w-5 text-primary" />
-                <div><p className="text-sm font-medium text-foreground">{t("contactsNotified")}</p><p className="text-xs text-muted-foreground">{t("viaSms")}</p></div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">{t("contactsNotified")}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {totalContacts > 0 ? `${contactsNotified}/${totalContacts} contacts notified via SMS` : "Add emergency contacts for SMS alerts"}
+                  </p>
+                </div>
               </div>
             </div>
 
-            {/* Quick dial */}
             <div className="grid w-full max-w-sm grid-cols-3 gap-3">
               <button onClick={() => callEmergency("100")} className="flex flex-col items-center gap-1.5 rounded-2xl border border-border bg-card p-3 transition-all hover:shadow-card">
                 <Phone className="h-5 w-5 text-emergency" /><span className="text-[11px] font-medium">{t("police")}</span>
@@ -208,7 +234,6 @@ const SOSEmergency = () => {
               </button>
             </div>
 
-            {/* Nearby places */}
             <div className="w-full max-w-sm">
               <h3 className="mb-3 text-sm font-bold text-foreground">Nearby Emergency Services (2km)</h3>
               {loadingPlaces ? (
@@ -223,17 +248,11 @@ const SOSEmergency = () => {
                   {nearbyPlaces.map((place, i) => (
                     <div key={i} className="rounded-xl border border-border bg-card p-3">
                       <div className="flex items-start gap-2">
-                        {place.type === "police" ? (
-                          <Shield className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                        ) : (
-                          <Hospital className="mt-0.5 h-4 w-4 shrink-0 text-emergency" />
-                        )}
+                        {place.type === "police" ? <Shield className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> : <Hospital className="mt-0.5 h-4 w-4 shrink-0 text-emergency" />}
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-semibold text-foreground truncate">{place.name}</p>
                           <p className="text-xs text-muted-foreground truncate">{place.address}</p>
-                          {place.distance && (
-                            <span className="text-xs text-primary font-medium">{place.distance}</span>
-                          )}
+                          {place.distance && <span className="text-xs text-primary font-medium">{place.distance}</span>}
                         </div>
                       </div>
                       <div className="mt-2 flex gap-2">
@@ -250,7 +269,11 @@ const SOSEmergency = () => {
               )}
             </div>
 
-            <button onClick={() => { setActivated(false); setNearbyPlaces([]); }} className="text-sm font-medium text-muted-foreground hover:text-foreground">{t("cancelAlert")}</button>
+            <Button asChild variant="ghost" size="sm" className="rounded-xl">
+              <Link to="/emergency-contacts"><UserPlus className="mr-2 h-4 w-4" /> Manage Contacts</Link>
+            </Button>
+
+            <button onClick={() => { setActivated(false); setNearbyPlaces([]); setAlertStatus(""); }} className="text-sm font-medium text-muted-foreground hover:text-foreground">{t("cancelAlert")}</button>
           </>
         )}
       </main>

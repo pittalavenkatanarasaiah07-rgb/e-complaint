@@ -12,6 +12,7 @@ import SOSEmergency from "./pages/SOSEmergency";
 import NearbyStations from "./pages/NearbyStations";
 import NearbyHospitals from "./pages/NearbyHospitals";
 import MyComplaints from "./pages/MyComplaints";
+import EmergencyContacts from "./pages/EmergencyContacts";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,6 +33,7 @@ const App = () => (
               <Route path="/nearby-stations" element={<NearbyStations />} />
               <Route path="/nearby-hospitals" element={<NearbyHospitals />} />
               <Route path="/my-complaints" element={<MyComplaints />} />
+              <Route path="/emergency-contacts" element={<EmergencyContacts />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
