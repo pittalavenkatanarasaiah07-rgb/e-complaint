@@ -1,4 +1,4 @@
-import { FileText, AlertTriangle, MapPin, Phone, ClipboardList, LogOut, Heart, LogIn } from "lucide-react";
+import { FileText, AlertTriangle, MapPin, Phone, ClipboardList, LogOut, Heart, LogIn, UserPlus } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
@@ -55,7 +55,7 @@ const Index = () => {
             <FeatureCard icon={MapPin} title={t("nearbyStations")} description={t("findPoliceHelp")} to="/nearby-stations" />
             <FeatureCard icon={Heart} title={t("nearbyHospitals")} description={t("findMedicalHelp")} to="/nearby-hospitals" />
             <FeatureCard icon={ClipboardList} title={t("myComplaints")} description={t("trackStatus")} to="/my-complaints" />
-            <FeatureCard icon={Phone} title={t("emergencyCall")} description={t("quickDial")} variant="emergency" to="/sos-emergency" />
+            <FeatureCard icon={UserPlus} title="Emergency Contacts" description="Save & manage contacts" to="/emergency-contacts" />
           </div>
 
           <div className="space-y-3 pt-2">
