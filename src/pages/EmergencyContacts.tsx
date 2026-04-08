@@ -83,7 +83,9 @@ const EmergencyContacts = () => {
         if (deviceContacts && deviceContacts.length > 0) {
           const c = deviceContacts[0];
           setName(c.name?.[0] || "");
-          setPhone(c.tel?.[0] || "");
+          const rawPhone = (c.tel?.[0] || "").replace(/[^0-9+]/g, "");
+          const formatted = rawPhone.startsWith("+91") ? rawPhone : "+91 " + rawPhone.replace(/^\+?/, "").slice(-10);
+          setPhone(formatted);
           setAdding(true);
           return;
         }
