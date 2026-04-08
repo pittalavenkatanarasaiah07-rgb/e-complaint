@@ -13,6 +13,7 @@ import NearbyStations from "./pages/NearbyStations";
 import NearbyHospitals from "./pages/NearbyHospitals";
 import MyComplaints from "./pages/MyComplaints";
 import EmergencyContacts from "./pages/EmergencyContacts";
+import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
