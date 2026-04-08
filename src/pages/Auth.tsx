@@ -32,8 +32,16 @@ const Auth = () => {
   }, [user, authLoading, navigate]);
 
   const handleEmailSignup = async () => {
-    if (!email || !password || !fullName) {
+    if (!email || !password || !fullName || !confirmPassword) {
       toast.error("Please fill all fields");
+      return;
+    }
+    if (password !== confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+    if (password.length < 6) {
+      toast.error("Password must be at least 6 characters");
       return;
     }
     setLoading(true);
