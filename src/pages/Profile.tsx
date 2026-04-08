@@ -151,7 +151,7 @@ const Profile = () => {
               <p className="text-sm font-medium text-foreground truncate">{user.email || "No email"}</p>
             </div>
             {emailVerified ? (
-              <div className="flex items-center gap-1 text-green-600">
+              <div className="flex items-center gap-1 text-primary">
                 <CheckCircle className="h-4 w-4" />
                 <span className="text-xs font-medium">Verified</span>
               </div>
