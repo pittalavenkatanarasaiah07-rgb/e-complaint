@@ -21,6 +21,7 @@ const Auth = () => {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   // Redirect to dashboard if already logged in
@@ -31,8 +32,16 @@ const Auth = () => {
   }, [user, authLoading, navigate]);
 
   const handleEmailSignup = async () => {
-    if (!email || !password || !fullName) {
+    if (!email || !password || !fullName || !confirmPassword) {
       toast.error("Please fill all fields");
+      return;
+    }
+    if (password !== confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+    if (password.length < 6) {
+      toast.error("Password must be at least 6 characters");
       return;
     }
     setLoading(true);
@@ -167,6 +176,21 @@ const Auth = () => {
                   className="rounded-xl"
                 />
               </div>
+              {mode === "signup" && (
+                <div className="space-y-1.5">
+                  <Label>Confirm Password</Label>
+                  <Input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="rounded-xl"
+                  />
+                  {confirmPassword && password !== confirmPassword && (
+                    <p className="text-xs text-destructive">Passwords do not match</p>
+                  )}
+                </div>
+              )}
             </div>
 
             <Button

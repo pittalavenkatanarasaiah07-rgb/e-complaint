@@ -53,7 +53,7 @@ const SOSEmergency = () => {
       const { Place, SearchNearbyRankPreference } = await google.maps.importLibrary("places") as any;
       const loc = new google.maps.LatLng(lat, lng);
       let allPlaces: NearbyPlace[] = [];
-      for (const type of ["police", "hospital"] as const) {
+      for (const type of ["police"] as const) {
         try {
           const request = {
             fields: ["displayName", "location", "formattedAddress", "nationalPhoneNumber", "id"],
