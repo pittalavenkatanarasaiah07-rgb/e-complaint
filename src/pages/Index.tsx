@@ -16,10 +16,16 @@ const Index = () => {
       <header className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
         <div>
           {user ? (
-            <button onClick={signOut} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-              <LogOut className="h-4 w-4" />
-              {t("logout")}
-            </button>
+            <div className="flex items-center gap-3">
+              <Link to="/profile" className="flex items-center gap-1.5 text-sm text-primary hover:text-primary/80 font-medium">
+                <User className="h-4 w-4" />
+                Profile
+              </Link>
+              <button onClick={signOut} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+                <LogOut className="h-4 w-4" />
+                {t("logout")}
+              </button>
+            </div>
           ) : (
             <Link to="/auth" className="flex items-center gap-1.5 text-sm text-primary hover:text-primary/80 font-medium">
               <LogIn className="h-4 w-4" />

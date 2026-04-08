@@ -176,6 +176,21 @@ const Auth = () => {
                   className="rounded-xl"
                 />
               </div>
+              {mode === "signup" && (
+                <div className="space-y-1.5">
+                  <Label>Confirm Password</Label>
+                  <Input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="rounded-xl"
+                  />
+                  {confirmPassword && password !== confirmPassword && (
+                    <p className="text-xs text-destructive">Passwords do not match</p>
+                  )}
+                </div>
+              )}
             </div>
 
             <Button

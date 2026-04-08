@@ -129,8 +129,20 @@ const EmergencyContacts = () => {
               <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Contact name" className="rounded-xl" />
             </div>
             <div className="space-y-1">
-              <Label className="text-sm font-medium">Phone</Label>
-              <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+91 9876543210" className="rounded-xl" />
+              <Label className="text-sm font-medium">Phone (+91)</Label>
+              <div className="flex gap-2">
+                <span className="flex items-center rounded-xl border border-input bg-muted px-3 text-sm text-muted-foreground">+91</span>
+                <Input
+                  value={phone.replace(/^\+91\s?/, "")}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/[^0-9]/g, "").slice(0, 10);
+                    setPhone("+91 " + val);
+                  }}
+                  placeholder="9876543210"
+                  className="rounded-xl flex-1"
+                  maxLength={10}
+                />
+              </div>
             </div>
             <div className="space-y-1">
               <Label className="text-sm font-medium">Relationship (optional)</Label>
