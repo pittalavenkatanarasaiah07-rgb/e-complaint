@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
 
     const mapsLink = `https://www.google.com/maps?q=${latitude},${longitude}`;
     const userName = user.user_metadata?.full_name || user.email || "Someone";
-    const smsBody = `🚨 SOS EMERGENCY!\n\n${userName} needs help!\n\nLocation: ${mapsLink}\n\nCall 100 (Police) or 108 (Ambulance).`;
+    const smsBody = `🚨 SOS EMERGENCY!\n\nYour person is in trouble.\n${userName} needs help!\n\nLocation: ${mapsLink}\n\nCall 100 (Police) or 108 (Ambulance).`;
 
     // Check for Twilio gateway credentials
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
