@@ -78,15 +78,39 @@ const EmergencyContacts = () => {
     try {
       if ("contacts" in navigator && "ContactsManager" in window) {
         const props = ["name", "tel"];
-        const opts = { multiple: false };
+        const opts = { multiple: true };
         const deviceContacts = await (navigator as any).contacts.select(props, opts);
         if (deviceContacts && deviceContacts.length > 0) {
-          const c = deviceContacts[0];
-          setName(c.name?.[0] || "");
-          const rawPhone = (c.tel?.[0] || "").replace(/[^0-9+]/g, "");
-          const formatted = rawPhone.startsWith("+91") ? rawPhone : "+91 " + rawPhone.replace(/^\+?/, "").slice(-10);
-          setPhone(formatted);
-          setAdding(true);
+          if (deviceContacts.length === 1) {
+            const c = deviceContacts[0];
+            setName(c.name?.[0] || "");
+            const rawPhone = (c.tel?.[0] || "").replace(/[^0-9+]/g, "");
+            const formatted = rawPhone.startsWith("+91") ? rawPhone : "+91 " + rawPhone.replace(/^\+?/, "").slice(-10);
+            setPhone(formatted);
+            setAdding(true);
+            return;
+          }
+          // Bulk import: save all picked contacts at once
+          const rows = deviceContacts
+            .map((c: any) => {
+              const nm = (c.name?.[0] || "").trim();
+              const raw = (c.tel?.[0] || "").replace(/[^0-9+]/g, "");
+              if (!nm || !raw) return null;
+              const ph = raw.startsWith("+91") ? raw : "+91" + raw.replace(/^\+?/, "").slice(-10);
+              return { user_id: user!.id, name: nm, phone: ph, relationship: null };
+            })
+            .filter(Boolean);
+          if (rows.length === 0) {
+            toast.info("No valid contacts selected");
+            return;
+          }
+          const { error } = await supabase.from("emergency_contacts").insert(rows as any);
+          if (error) {
+            toast.error("Failed to import contacts");
+            return;
+          }
+          toast.success(`Imported ${rows.length} contact${rows.length > 1 ? "s" : ""}`);
+          fetchContacts();
           return;
         }
       }
