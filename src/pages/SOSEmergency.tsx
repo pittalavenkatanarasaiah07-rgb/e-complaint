@@ -30,6 +30,7 @@ const SOSEmergency = () => {
   const [alertStatus, setAlertStatus] = useState<string>("");
   const [contactsNotified, setContactsNotified] = useState(0);
   const [totalContacts, setTotalContacts] = useState(0);
+  const [trialWarning, setTrialWarning] = useState<{ isTrial: boolean; unverified: { name: string; phone: string }[] } | null>(null);
   const { t } = useLanguage();
   const { user, session } = useAuth();
   const scriptLoadedRef = useRef(false);
@@ -116,6 +117,11 @@ const SOSEmergency = () => {
       setContactsNotified(data.notified || 0);
       setTotalContacts(data.total || 0);
       setAlertStatus(data.message || "Alerts processed");
+      if (data.isTrial && Array.isArray(data.unverifiedContacts) && data.unverifiedContacts.length > 0) {
+        setTrialWarning({ isTrial: true, unverified: data.unverifiedContacts });
+      } else {
+        setTrialWarning(null);
+      }
     } catch (e) {
       setAlertStatus("Alert recorded locally");
     }
@@ -221,6 +227,33 @@ const SOSEmergency = () => {
                 </div>
               </div>
             </div>
+
+            {trialWarning && (
+              <div className="w-full max-w-sm rounded-2xl border border-emergency/40 bg-emergency/10 p-4 space-y-2">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-emergency" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-bold text-emergency">Twilio trial account</p>
+                    <p className="text-xs text-foreground">
+                      Trial accounts can only send SMS to numbers verified in your Twilio console. The contacts below were NOT notified:
+                    </p>
+                  </div>
+                </div>
+                <ul className="ml-7 list-disc space-y-0.5 text-xs text-foreground">
+                  {trialWarning.unverified.map((c, i) => (
+                    <li key={i}><span className="font-medium">{c.name}</span> — {c.phone}</li>
+                  ))}
+                </ul>
+                <a
+                  href="https://console.twilio.com/us1/develop/phone-numbers/manage/verified"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="ml-7 block text-xs font-medium text-primary underline"
+                >
+                  Verify these numbers in Twilio →
+                </a>
+              </div>
+            )}
 
             <div className="grid w-full max-w-sm grid-cols-3 gap-3">
               <button onClick={() => callEmergency("100")} className="flex flex-col items-center gap-1.5 rounded-2xl border border-border bg-card p-3 transition-all hover:shadow-card">
