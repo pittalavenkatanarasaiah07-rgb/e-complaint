@@ -3,6 +3,7 @@ import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const GATEWAY_URL = "https://connector-gateway.lovable.dev/twilio";
+const TWILIO_FROM_NUMBER = "+15717280228";
 
 const BodySchema = z.object({
   latitude: z.number(),
@@ -66,8 +67,7 @@ Deno.serve(async (req) => {
     }
 
     const mapsLink = `https://www.google.com/maps?q=${latitude},${longitude}`;
-    const userName = user.user_metadata?.full_name || user.email || "Someone";
-    const smsBody = `🚨 SOS EMERGENCY!\n\nYour person is in trouble.\n${userName} needs help!\n\nLocation: ${mapsLink}\n\nCall 100 (Police) or 108 (Ambulance).`;
+    const smsBody = `Your person is in trouble.\nLocation: ${mapsLink}`;
 
     // Check for Twilio gateway credentials
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -98,35 +98,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Get Twilio phone numbers to find a From number
-    let fromNumber = "";
-    try {
-      const numResp = await fetch(`${GATEWAY_URL}/IncomingPhoneNumbers.json`, {
-        method: "GET",
-        headers: {
-          "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-          "X-Connection-Api-Key": TWILIO_API_KEY,
-        },
-      });
-      const numData = await numResp.json();
-      if (numData.incoming_phone_numbers && numData.incoming_phone_numbers.length > 0) {
-        fromNumber = numData.incoming_phone_numbers[0].phone_number;
-      }
-    } catch (e) {
-      console.error("Failed to get Twilio phone numbers:", e);
-    }
-
-    if (!fromNumber) {
-      return new Response(JSON.stringify({
-        success: false,
-        message: "No Twilio phone number available. Please configure a Twilio phone number.",
-        notified: 0,
-        total: contacts.length,
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const fromNumber = TWILIO_FROM_NUMBER;
 
     const results: { name: string; phone: string; sent: boolean }[] = [];
 
