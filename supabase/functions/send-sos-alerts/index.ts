@@ -100,7 +100,48 @@ Deno.serve(async (req) => {
 
     const fromNumber = TWILIO_FROM_NUMBER;
 
-    const results: { name: string; phone: string; sent: boolean }[] = [];
+    // Detect Twilio trial status + verified caller IDs
+    let isTrial = false;
+    const verifiedSet = new Set<string>();
+    const normalize = (p: string) => (p || "").replace(/\D/g, "").slice(-10);
+    try {
+      const acctResp = await fetch(`${GATEWAY_URL}/.json`, {
+        headers: {
+          "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+          "X-Connection-Api-Key": TWILIO_API_KEY,
+        },
+      });
+      const acctData = await acctResp.json();
+      if (acctResp.ok && typeof acctData?.type === "string") {
+        isTrial = acctData.type.toLowerCase() === "trial";
+      }
+    } catch (e) {
+      console.error("Failed to fetch Twilio account info:", e);
+    }
+    try {
+      const vResp = await fetch(`${GATEWAY_URL}/OutgoingCallerIds.json?PageSize=100`, {
+        headers: {
+          "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+          "X-Connection-Api-Key": TWILIO_API_KEY,
+        },
+      });
+      const vData = await vResp.json();
+      if (vResp.ok && Array.isArray(vData?.outgoing_caller_ids)) {
+        for (const c of vData.outgoing_caller_ids) {
+          if (c?.phone_number) verifiedSet.add(normalize(c.phone_number));
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch Twilio verified caller IDs:", e);
+    }
+
+    const unverifiedContacts = isTrial
+      ? contacts
+          .filter((c) => !verifiedSet.has(normalize(c.phone)))
+          .map((c) => ({ name: c.name, phone: c.phone }))
+      : [];
+
+    const results: { name: string; phone: string; sent: boolean; errorCode?: number; errorMessage?: string }[] = [];
 
     for (const contact of contacts) {
       try {
@@ -118,7 +159,13 @@ Deno.serve(async (req) => {
           }),
         });
         const data = await resp.json();
-        results.push({ name: contact.name, phone: contact.phone, sent: resp.ok });
+        results.push({
+          name: contact.name,
+          phone: contact.phone,
+          sent: resp.ok,
+          errorCode: resp.ok ? undefined : data?.code,
+          errorMessage: resp.ok ? undefined : data?.message,
+        });
         if (!resp.ok) {
           console.error(`SMS to ${contact.phone} failed [${resp.status}]:`, JSON.stringify(data));
         }
@@ -136,6 +183,8 @@ Deno.serve(async (req) => {
       notified,
       total: contacts.length,
       results,
+      isTrial,
+      unverifiedContacts,
     }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
