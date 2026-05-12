@@ -5,6 +5,28 @@ import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 const GATEWAY_URL = "https://connector-gateway.lovable.dev/twilio";
 const TWILIO_FROM_NUMBER = "+15717280228";
 
+const normalizePhone = (phone: string) => (phone || "").replace(/\D/g, "");
+
+const isValidE164 = (phone: string) => /^\+[1-9]\d{7,14}$/.test((phone || "").replace(/\s/g, ""));
+
+const getSmsSenderNumber = async (lovableApiKey: string, twilioApiKey: string) => {
+  const resp = await fetch(`${GATEWAY_URL}/IncomingPhoneNumbers.json?PageSize=20`, {
+    headers: {
+      "Authorization": `Bearer ${lovableApiKey}`,
+      "X-Connection-Api-Key": twilioApiKey,
+    },
+  });
+  const data = await resp.json();
+  if (!resp.ok) {
+    throw new Error(`Twilio phone number lookup failed [${resp.status}]: ${JSON.stringify(data)}`);
+  }
+
+  const numbers = Array.isArray(data?.incoming_phone_numbers) ? data.incoming_phone_numbers : [];
+  const requested = numbers.find((n) => n?.phone_number === TWILIO_FROM_NUMBER && n?.capabilities?.sms);
+  const smsCapable = requested || numbers.find((n) => n?.capabilities?.sms);
+  return smsCapable?.phone_number as string | undefined;
+};
+
 const BodySchema = z.object({
   latitude: z.number(),
   longitude: z.number(),
@@ -98,12 +120,41 @@ Deno.serve(async (req) => {
       });
     }
 
-    const fromNumber = TWILIO_FROM_NUMBER;
+    let fromNumber = TWILIO_FROM_NUMBER;
+    try {
+      const accountSmsNumber = await getSmsSenderNumber(LOVABLE_API_KEY, TWILIO_API_KEY);
+      if (!accountSmsNumber) {
+        return new Response(JSON.stringify({
+          success: false,
+          message: "No SMS-capable Twilio phone number found on the connected account",
+          notified: 0,
+          total: contacts.length,
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      fromNumber = accountSmsNumber;
+      if (fromNumber !== TWILIO_FROM_NUMBER) {
+        console.warn(`Configured Twilio From number ${TWILIO_FROM_NUMBER} is not available on this account. Using ${fromNumber}.`);
+      }
+    } catch (e) {
+      console.error("Failed to resolve Twilio sender number:", e);
+      return new Response(JSON.stringify({
+        success: false,
+        message: "Could not verify Twilio sender number",
+        notified: 0,
+        total: contacts.length,
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Detect Twilio trial status + verified caller IDs
     let isTrial = false;
     const verifiedSet = new Set<string>();
-    const normalize = (p: string) => (p || "").replace(/\D/g, "").slice(-10);
+    const normalize = (p: string) => normalizePhone(p).slice(-10);
     try {
       const acctResp = await fetch(`${GATEWAY_URL}/.json`, {
         headers: {
@@ -144,6 +195,17 @@ Deno.serve(async (req) => {
     const results: { name: string; phone: string; sent: boolean; errorCode?: number; errorMessage?: string }[] = [];
 
     for (const contact of contacts) {
+      const toNumber = (contact.phone || "").replace(/\s/g, "");
+      if (!isValidE164(toNumber)) {
+        results.push({
+          name: contact.name,
+          phone: contact.phone,
+          sent: false,
+          errorMessage: "Invalid phone number. Use country code plus the full phone number, for example +919876543210.",
+        });
+        continue;
+      }
+
       try {
         const resp = await fetch(`${GATEWAY_URL}/Messages.json`, {
           method: "POST",
@@ -153,7 +215,7 @@ Deno.serve(async (req) => {
             "Content-Type": "application/x-www-form-urlencoded",
           },
           body: new URLSearchParams({
-            To: contact.phone,
+            To: toNumber,
             From: fromNumber,
             Body: smsBody,
           }),
