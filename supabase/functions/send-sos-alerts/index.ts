@@ -7,7 +7,11 @@ const TWILIO_FROM_NUMBER = "+15717280228";
 
 const normalizePhone = (phone: string) => (phone || "").replace(/\D/g, "");
 
-const isValidE164 = (phone: string) => /^\+[1-9]\d{7,14}$/.test((phone || "").replace(/\s/g, ""));
+const isValidSmsPhone = (phone: string) => {
+  const compact = (phone || "").replace(/\s/g, "");
+  if (compact.startsWith("+91")) return /^\+91[6-9]\d{9}$/.test(compact);
+  return /^\+[1-9]\d{7,14}$/.test(compact);
+};
 
 const getSmsSenderNumber = async (lovableApiKey: string, twilioApiKey: string) => {
   const resp = await fetch(`${GATEWAY_URL}/IncomingPhoneNumbers.json?PageSize=20`, {
@@ -196,7 +200,7 @@ Deno.serve(async (req) => {
 
     for (const contact of contacts) {
       const toNumber = (contact.phone || "").replace(/\s/g, "");
-      if (!isValidE164(toNumber)) {
+      if (!isValidSmsPhone(toNumber)) {
         results.push({
           name: contact.name,
           phone: contact.phone,
@@ -238,6 +242,12 @@ Deno.serve(async (req) => {
     }
 
     const notified = results.filter(r => r.sent).length;
+    const trialErrorContacts = results
+      .filter((r) => r.errorCode === 21608)
+      .map((r) => ({ name: r.name, phone: r.phone }));
+    const allUnverifiedContacts = [...unverifiedContacts, ...trialErrorContacts].filter(
+      (contact, index, arr) => arr.findIndex((c) => normalizePhone(c.phone) === normalizePhone(contact.phone)) === index,
+    );
 
     return new Response(JSON.stringify({
       success: true,
@@ -245,8 +255,8 @@ Deno.serve(async (req) => {
       notified,
       total: contacts.length,
       results,
-      isTrial,
-      unverifiedContacts,
+      isTrial: isTrial || trialErrorContacts.length > 0,
+      unverifiedContacts: allUnverifiedContacts,
     }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
