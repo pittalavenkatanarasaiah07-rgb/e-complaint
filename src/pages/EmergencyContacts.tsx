@@ -165,7 +165,7 @@ const EmergencyContacts = () => {
                   value={phone.replace(/^\+91\s?/, "")}
                   onChange={(e) => {
                     const val = e.target.value.replace(/[^0-9]/g, "").slice(0, 10);
-                    setPhone("+91 " + val);
+                    setPhone("+91" + val);
                   }}
                   placeholder="9876543210"
                   className="rounded-xl flex-1"
