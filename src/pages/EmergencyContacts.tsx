@@ -17,6 +17,11 @@ interface EmergencyContact {
   relationship: string | null;
 }
 
+const formatIndiaPhone = (value: string) => {
+  const digits = value.replace(/\D/g, "").slice(-10);
+  return digits.length === 10 ? `+91${digits}` : "";
+};
+
 const EmergencyContacts = () => {
   const { user } = useAuth();
   const { t } = useLanguage();
@@ -44,14 +49,15 @@ const EmergencyContacts = () => {
 
   const addContact = async () => {
     if (!user) return;
-    if (!name.trim() || !phone.trim()) {
-      toast.error("Name and phone are required");
+    const formattedPhone = formatIndiaPhone(phone);
+    if (!name.trim() || !formattedPhone) {
+      toast.error("Enter a valid 10-digit phone number");
       return;
     }
     const { error } = await supabase.from("emergency_contacts").insert({
       user_id: user.id,
       name: name.trim(),
-      phone: phone.trim(),
+      phone: formattedPhone,
       relationship: relationship.trim() || null,
     });
     if (error) {
@@ -84,9 +90,7 @@ const EmergencyContacts = () => {
           if (deviceContacts.length === 1) {
             const c = deviceContacts[0];
             setName(c.name?.[0] || "");
-            const rawPhone = (c.tel?.[0] || "").replace(/[^0-9+]/g, "");
-            const formatted = rawPhone.startsWith("+91") ? rawPhone : "+91 " + rawPhone.replace(/^\+?/, "").slice(-10);
-            setPhone(formatted);
+            setPhone(formatIndiaPhone(c.tel?.[0] || ""));
             setAdding(true);
             return;
           }
@@ -94,9 +98,8 @@ const EmergencyContacts = () => {
           const rows = deviceContacts
             .map((c: any) => {
               const nm = (c.name?.[0] || "").trim();
-              const raw = (c.tel?.[0] || "").replace(/[^0-9+]/g, "");
-              if (!nm || !raw) return null;
-              const ph = raw.startsWith("+91") ? raw : "+91" + raw.replace(/^\+?/, "").slice(-10);
+              const ph = formatIndiaPhone(c.tel?.[0] || "");
+              if (!nm || !ph) return null;
               return { user_id: user!.id, name: nm, phone: ph, relationship: null };
             })
             .filter(Boolean);
