@@ -22,6 +22,14 @@ interface NearbyPlace {
   type: "police" | "hospital";
 }
 
+interface SmsResult {
+  name: string;
+  phone: string;
+  sent: boolean;
+  errorCode?: number;
+  errorMessage?: string;
+}
+
 const SOSEmergency = () => {
   const [activated, setActivated] = useState(false);
   const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlace[]>([]);
@@ -31,6 +39,7 @@ const SOSEmergency = () => {
   const [contactsNotified, setContactsNotified] = useState(0);
   const [totalContacts, setTotalContacts] = useState(0);
   const [trialWarning, setTrialWarning] = useState<{ isTrial: boolean; unverified: { name: string; phone: string }[] } | null>(null);
+  const [smsFailures, setSmsFailures] = useState<SmsResult[]>([]);
   const { t } = useLanguage();
   const { user, session } = useAuth();
   const scriptLoadedRef = useRef(false);
@@ -117,6 +126,7 @@ const SOSEmergency = () => {
       setContactsNotified(data.notified || 0);
       setTotalContacts(data.total || 0);
       setAlertStatus(data.message || "Alerts processed");
+      setSmsFailures(Array.isArray(data.results) ? data.results.filter((r: SmsResult) => !r.sent) : []);
       if (data.isTrial && Array.isArray(data.unverifiedContacts) && data.unverifiedContacts.length > 0) {
         setTrialWarning({ isTrial: true, unverified: data.unverifiedContacts });
       } else {
@@ -228,6 +238,26 @@ const SOSEmergency = () => {
               </div>
             </div>
 
+            {smsFailures.length > 0 && (
+              <div className="w-full max-w-sm rounded-2xl border border-destructive/40 bg-destructive/10 p-4 space-y-2">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-bold text-destructive">Some SMS alerts failed</p>
+                    <p className="text-xs text-foreground">These contacts were not notified:</p>
+                  </div>
+                </div>
+                <ul className="ml-7 list-disc space-y-1 text-xs text-foreground">
+                  {smsFailures.map((r, i) => (
+                    <li key={i}>
+                      <span className="font-medium">{r.name}</span> — {r.phone}
+                      {r.errorMessage ? <span className="block text-muted-foreground">{r.errorMessage}</span> : null}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             {trialWarning && (
               <div className="w-full max-w-sm rounded-2xl border border-emergency/40 bg-emergency/10 p-4 space-y-2">
                 <div className="flex items-start gap-2">
@@ -306,7 +336,7 @@ const SOSEmergency = () => {
               <Link to="/emergency-contacts"><UserPlus className="mr-2 h-4 w-4" /> Manage Contacts</Link>
             </Button>
 
-            <button onClick={() => { setActivated(false); setNearbyPlaces([]); setAlertStatus(""); }} className="text-sm font-medium text-muted-foreground hover:text-foreground">{t("cancelAlert")}</button>
+            <button onClick={() => { setActivated(false); setNearbyPlaces([]); setAlertStatus(""); setSmsFailures([]); setTrialWarning(null); }} className="text-sm font-medium text-muted-foreground hover:text-foreground">{t("cancelAlert")}</button>
           </>
         )}
       </main>
