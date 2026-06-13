@@ -222,6 +222,33 @@ const SOSEmergency = () => {
               <p className="text-sm text-muted-foreground">{alertStatus || t("alertSentDesc")}</p>
             </div>
 
+            {/* Emergency Helplines - tap to call directly */}
+            <div className="w-full max-w-sm rounded-2xl border-2 border-emergency/40 bg-card p-4 space-y-3 shadow-card">
+              <h3 className="text-sm font-bold text-emergency flex items-center gap-2">
+                <Phone className="h-4 w-4" /> Emergency Helplines — Tap to Call
+              </h3>
+              {[
+                { label: "Police", number: "100", icon: Shield, tone: "text-emergency" },
+                { label: "Women Helpline", number: "1091", icon: Users, tone: "text-primary" },
+                { label: "Women Help (181)", number: "181", icon: Users, tone: "text-primary" },
+              ].map((h) => (
+                <button
+                  key={h.number}
+                  onClick={() => callEmergency(h.number)}
+                  className="flex w-full items-center justify-between rounded-xl border border-border bg-background p-3 transition-all hover:bg-muted active:scale-[0.98]"
+                >
+                  <div className="flex items-center gap-3">
+                    <h.icon className={`h-5 w-5 ${h.tone}`} />
+                    <span className="text-sm font-semibold text-foreground">{h.label}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-base font-bold text-foreground">{h.number}</span>
+                    <Phone className="h-4 w-4 text-emergency" />
+                  </div>
+                </button>
+              ))}
+            </div>
+
             <div className="w-full max-w-sm space-y-3 rounded-2xl border border-border bg-card p-4">
               <div className="flex items-center gap-3">
                 <MapPin className="h-5 w-5 text-primary" />
