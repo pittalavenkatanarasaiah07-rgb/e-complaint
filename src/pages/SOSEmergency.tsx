@@ -6,7 +6,7 @@ declare global { interface Window { google: any; } }
 import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { AlertTriangle, Phone, MapPin, Users, CheckCircle, Hospital, Shield, Navigation, Loader2, UserPlus } from "lucide-react";
+import { AlertTriangle, Phone, MapPin, Users, CheckCircle, Hospital, Shield, Navigation, Loader2, UserPlus, Baby } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -195,7 +195,7 @@ const SOSEmergency = () => {
               </button>
             </div>
 
-            <div className="grid w-full max-w-sm grid-cols-3 gap-3">
+            <div className="grid w-full max-w-sm grid-cols-2 gap-3">
               <button onClick={() => callEmergency("100")} className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-card p-4 transition-all hover:shadow-card">
                 <Phone className="h-6 w-6 text-emergency" /><span className="text-xs font-medium text-foreground">{t("police")}</span>
               </button>
@@ -204,6 +204,9 @@ const SOSEmergency = () => {
               </button>
               <button onClick={() => callEmergency("181")} className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-card p-4 transition-all hover:shadow-card">
                 <Users className="h-6 w-6 text-primary" /><span className="text-xs font-medium text-foreground">{t("women")}</span>
+              </button>
+              <button onClick={() => callEmergency("1098")} className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-card p-4 transition-all hover:shadow-card">
+                <Baby className="h-6 w-6 text-primary" /><span className="text-xs font-medium text-foreground">Child Helpline</span>
               </button>
             </div>
 
@@ -231,6 +234,7 @@ const SOSEmergency = () => {
                 { label: "Police", number: "100", icon: Shield, tone: "text-emergency" },
                 { label: "Women Helpline", number: "1091", icon: Users, tone: "text-primary" },
                 { label: "Women Help (181)", number: "181", icon: Users, tone: "text-primary" },
+                { label: "Child Helpline", number: "1098", icon: Baby, tone: "text-primary" },
               ].map((h) => (
                 <button
                   key={h.number}
@@ -312,7 +316,7 @@ const SOSEmergency = () => {
               </div>
             )}
 
-            <div className="grid w-full max-w-sm grid-cols-3 gap-3">
+            <div className="grid w-full max-w-sm grid-cols-2 gap-3">
               <button onClick={() => callEmergency("100")} className="flex flex-col items-center gap-1.5 rounded-2xl border border-border bg-card p-3 transition-all hover:shadow-card">
                 <Phone className="h-5 w-5 text-emergency" /><span className="text-[11px] font-medium">{t("police")}</span>
               </button>
@@ -321,6 +325,9 @@ const SOSEmergency = () => {
               </button>
               <button onClick={() => callEmergency("181")} className="flex flex-col items-center gap-1.5 rounded-2xl border border-border bg-card p-3 transition-all hover:shadow-card">
                 <Users className="h-5 w-5 text-primary" /><span className="text-[11px] font-medium">{t("women")}</span>
+              </button>
+              <button onClick={() => callEmergency("1098")} className="flex flex-col items-center gap-1.5 rounded-2xl border border-border bg-card p-3 transition-all hover:shadow-card">
+                <Baby className="h-5 w-5 text-primary" /><span className="text-[11px] font-medium">Child Helpline</span>
               </button>
             </div>
 
