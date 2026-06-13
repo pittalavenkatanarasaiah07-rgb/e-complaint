@@ -121,7 +121,7 @@ const Auth = () => {
       <main className="flex flex-1 flex-col items-center justify-center px-6 pb-12">
         <div className="w-full max-w-sm space-y-6">
           <div className="flex flex-col items-center gap-3">
-            <img src={shieldIcon} alt="SafeGuard" className="h-16 w-16" />
+            <img src={shieldIcon} alt="E-COMPLAINT" className="h-16 w-16" />
             <h1 className="text-2xl font-extrabold text-foreground">{t("appName")}</h1>
           </div>
 

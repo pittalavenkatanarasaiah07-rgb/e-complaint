@@ -5,7 +5,7 @@ export type Language = "en" | "hi" | "te";
 const translations = {
   en: {
     // Index
-    appName: "SafeGuard",
+    appName: "E-COMPLAINT",
     tagline: "Your Safety, Our Priority",
     heroDesc: "Report crimes, access emergency services, and get help — all in one app.",
     welcome: "Welcome",
@@ -53,7 +53,7 @@ const translations = {
     verifying: "Verifying...",
     resendOtp: "Resend OTP",
     welcomeBack: "Welcome Back",
-    loginDesc: "Log in to your SafeGuard account",
+    loginDesc: "Log in to your E-COMPLAINT account",
     yourPassword: "Your password",
     loggingIn: "Logging in...",
 
@@ -140,7 +140,7 @@ const translations = {
     showingResultsFor: "Showing results for",
   },
   hi: {
-    appName: "सेफगार्ड",
+    appName: "E-COMPLAINT",
     tagline: "आपकी सुरक्षा, हमारी प्राथमिकता",
     heroDesc: "अपराध की रिपोर्ट करें, आपातकालीन सेवाओं तक पहुंचें, और सहायता प्राप्त करें — सब एक ऐप में।",
     welcome: "स्वागत है",
@@ -187,7 +187,7 @@ const translations = {
     verifying: "सत्यापित कर रहे हैं...",
     resendOtp: "OTP पुनः भेजें",
     welcomeBack: "वापस स्वागत है",
-    loginDesc: "अपने सेफगार्ड खाते में लॉगिन करें",
+    loginDesc: "अपने E-COMPLAINT खाते में लॉगिन करें",
     yourPassword: "आपका पासवर्ड",
     loggingIn: "लॉगिन हो रहा है...",
 
@@ -270,7 +270,7 @@ const translations = {
     showingResultsFor: "परिणाम दिखा रहे हैं",
   },
   te: {
-    appName: "సేఫ్‌గార్డ్",
+    appName: "E-COMPLAINT",
     tagline: "మీ భద్రత, మా ప్రాధాన్యత",
     heroDesc: "నేరాలను నివేదించండి, అత్యవసర సేవలను పొందండి మరియు సహాయం పొందండి — అన్నీ ఒకే యాప్‌లో.",
     welcome: "స్వాగతం",
@@ -317,7 +317,7 @@ const translations = {
     verifying: "ధృవీకరిస్తోంది...",
     resendOtp: "OTP మళ్ళీ పంపండి",
     welcomeBack: "తిరిగి స్వాగతం",
-    loginDesc: "మీ సేఫ్‌గార్డ్ ఖాతాలో లాగిన్ అవ్వండి",
+    loginDesc: "మీ E-COMPLAINT ఖాతాలో లాగిన్ అవ్వండి",
     yourPassword: "మీ పాస్‌వర్డ్",
     loggingIn: "లాగిన్ అవుతోంది...",
 
