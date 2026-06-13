@@ -234,6 +234,7 @@ const SOSEmergency = () => {
                 { label: "Police", number: "100", icon: Shield, tone: "text-emergency" },
                 { label: "Women Helpline", number: "1091", icon: Users, tone: "text-primary" },
                 { label: "Women Help (181)", number: "181", icon: Users, tone: "text-primary" },
+                { label: "Child Helpline", number: "1098", icon: Baby, tone: "text-primary" },
               ].map((h) => (
                 <button
                   key={h.number}
