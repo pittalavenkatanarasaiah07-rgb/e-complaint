@@ -40,7 +40,7 @@ const Index = () => {
         <div className="w-full max-w-md space-y-6 sm:space-y-8">
           <div className="flex justify-center">
             <div className="animate-float">
-              <img src={shieldIcon} alt="SafeGuard shield" className="h-20 w-20 sm:h-24 sm:w-24 drop-shadow-lg" />
+              <img src={shieldIcon} alt="E-COMPLAINT shield" className="h-20 w-20 sm:h-24 sm:w-24 drop-shadow-lg" />
             </div>
           </div>
 
