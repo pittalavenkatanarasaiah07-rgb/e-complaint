@@ -1,4 +1,4 @@
-import { FileText, AlertTriangle, MapPin, Phone, ClipboardList, LogOut, Heart, LogIn, UserPlus, User } from "lucide-react";
+import { FileText, AlertTriangle, MapPin, Phone, ClipboardList, LogOut, Heart, LogIn, UserPlus, User, Baby, Shield, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
@@ -62,6 +62,43 @@ const Index = () => {
             <FeatureCard icon={Heart} title={t("nearbyHospitals")} description={t("findMedicalHelp")} to="/nearby-hospitals" />
             <FeatureCard icon={ClipboardList} title={t("myComplaints")} description={t("trackStatus")} to="/my-complaints" />
             <FeatureCard icon={UserPlus} title="Emergency Contacts" description="Save & manage contacts" to="/emergency-contacts" />
+          </div>
+
+          {/* Emergency Quick Dial */}
+          <div className="w-full rounded-2xl border border-border bg-card p-4 shadow-card">
+            <h3 className="mb-3 text-sm font-bold text-emergency flex items-center gap-2">
+              <Phone className="h-4 w-4" /> Emergency Numbers — Tap to Call
+            </h3>
+            <div className="grid grid-cols-2 gap-3">
+              <a href="tel:100" className="flex items-center gap-3 rounded-xl border border-border bg-background p-3 transition-all hover:bg-muted active:scale-[0.98]">
+                <Shield className="h-5 w-5 text-emergency shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Police</p>
+                  <p className="text-xs text-muted-foreground">100</p>
+                </div>
+              </a>
+              <a href="tel:108" className="flex items-center gap-3 rounded-xl border border-border bg-background p-3 transition-all hover:bg-muted active:scale-[0.98]">
+                <Phone className="h-5 w-5 text-primary shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Ambulance</p>
+                  <p className="text-xs text-muted-foreground">108</p>
+                </div>
+              </a>
+              <a href="tel:181" className="flex items-center gap-3 rounded-xl border border-border bg-background p-3 transition-all hover:bg-muted active:scale-[0.98]">
+                <Users className="h-5 w-5 text-primary shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Women Help</p>
+                  <p className="text-xs text-muted-foreground">181</p>
+                </div>
+              </a>
+              <a href="tel:1098" className="flex items-center gap-3 rounded-xl border border-border bg-background p-3 transition-all hover:bg-muted active:scale-[0.98]">
+                <Baby className="h-5 w-5 text-primary shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Child Helpline</p>
+                  <p className="text-xs text-muted-foreground">1098</p>
+                </div>
+              </a>
+            </div>
           </div>
 
           <div className="space-y-3 pt-2">
