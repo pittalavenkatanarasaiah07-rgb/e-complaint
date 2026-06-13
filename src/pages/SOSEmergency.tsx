@@ -6,7 +6,7 @@ declare global { interface Window { google: any; } }
 import { useLanguage } from "@/hooks/useLanguage";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { AlertTriangle, Phone, MapPin, Users, CheckCircle, Hospital, Shield, Navigation, Loader2, UserPlus } from "lucide-react";
+import { AlertTriangle, Phone, MapPin, Users, CheckCircle, Hospital, Shield, Navigation, Loader2, UserPlus, Baby } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
