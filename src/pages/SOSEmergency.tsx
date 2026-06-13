@@ -316,7 +316,7 @@ const SOSEmergency = () => {
               </div>
             )}
 
-            <div className="grid w-full max-w-sm grid-cols-3 gap-3">
+            <div className="grid w-full max-w-sm grid-cols-2 gap-3">
               <button onClick={() => callEmergency("100")} className="flex flex-col items-center gap-1.5 rounded-2xl border border-border bg-card p-3 transition-all hover:shadow-card">
                 <Phone className="h-5 w-5 text-emergency" /><span className="text-[11px] font-medium">{t("police")}</span>
               </button>
@@ -325,6 +325,9 @@ const SOSEmergency = () => {
               </button>
               <button onClick={() => callEmergency("181")} className="flex flex-col items-center gap-1.5 rounded-2xl border border-border bg-card p-3 transition-all hover:shadow-card">
                 <Users className="h-5 w-5 text-primary" /><span className="text-[11px] font-medium">{t("women")}</span>
+              </button>
+              <button onClick={() => callEmergency("1098")} className="flex flex-col items-center gap-1.5 rounded-2xl border border-border bg-card p-3 transition-all hover:shadow-card">
+                <Baby className="h-5 w-5 text-primary" /><span className="text-[11px] font-medium">Child Helpline</span>
               </button>
             </div>
 
