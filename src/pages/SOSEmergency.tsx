@@ -195,7 +195,7 @@ const SOSEmergency = () => {
               </button>
             </div>
 
-            <div className="grid w-full max-w-sm grid-cols-3 gap-3">
+            <div className="grid w-full max-w-sm grid-cols-2 gap-3">
               <button onClick={() => callEmergency("100")} className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-card p-4 transition-all hover:shadow-card">
                 <Phone className="h-6 w-6 text-emergency" /><span className="text-xs font-medium text-foreground">{t("police")}</span>
               </button>
@@ -204,6 +204,9 @@ const SOSEmergency = () => {
               </button>
               <button onClick={() => callEmergency("181")} className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-card p-4 transition-all hover:shadow-card">
                 <Users className="h-6 w-6 text-primary" /><span className="text-xs font-medium text-foreground">{t("women")}</span>
+              </button>
+              <button onClick={() => callEmergency("1098")} className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-card p-4 transition-all hover:shadow-card">
+                <Baby className="h-6 w-6 text-primary" /><span className="text-xs font-medium text-foreground">Child Helpline</span>
               </button>
             </div>
 
