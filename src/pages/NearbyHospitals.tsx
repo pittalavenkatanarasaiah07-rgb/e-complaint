@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/useLanguage";
 import { toast } from "sonner";
 
-const GOOGLE_API_KEY = "AIzaSyASY-gWNWZtkBySNO9dvdpMzz5NtyfgYzQ";
+import { loadGoogleMaps } from "@/lib/googleMaps";
 
 interface Place {
   name: string;
