@@ -22,6 +22,29 @@ interface TravelInfo {
   fourWheeler: string;
 }
 
+// Exclude police residences/offices that are not public-facing stations
+const EXCLUDE_PATTERNS = [
+  "bunglow", "bungalow", "banglow", "banglore bunglow",
+  "quarters", "quarter", "residence", "residency", "colony",
+  "housing", "camp", "lines", "club", "canteen", "academy",
+  "training", "mess", "welfare", "society", "school", "hostel",
+  "museum", "memorial", "ground", "guest house", "office of",
+];
+
+// Keep only real main / sub police stations
+const INCLUDE_PATTERNS = [
+  "police station", "ps ", " ps", "thana", "thane",
+  "police chowki", "chowky", "chowki", "outpost", "out post",
+  "sub inspector office", "sub division", "sub-division",
+  "circle inspector", "commissionerate", "police commissioner",
+];
+
+const isRealPoliceStation = (name: string) => {
+  const n = (name || "").toLowerCase();
+  if (EXCLUDE_PATTERNS.some((p) => n.includes(p))) return false;
+  return INCLUDE_PATTERNS.some((p) => n.includes(p));
+};
+
 const NearbyStations = () => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
