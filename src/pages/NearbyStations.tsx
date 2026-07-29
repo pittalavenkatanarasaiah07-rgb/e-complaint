@@ -22,6 +22,29 @@ interface TravelInfo {
   fourWheeler: string;
 }
 
+// Exclude police residences/offices that are not public-facing stations
+const EXCLUDE_PATTERNS = [
+  "bunglow", "bungalow", "banglow", "banglore bunglow",
+  "quarters", "quarter", "residence", "residency", "colony",
+  "housing", "camp", "lines", "club", "canteen", "academy",
+  "training", "mess", "welfare", "society", "school", "hostel",
+  "museum", "memorial", "ground", "guest house", "office of",
+];
+
+// Keep only real main / sub police stations
+const INCLUDE_PATTERNS = [
+  "police station", "ps ", " ps", "thana", "thane",
+  "police chowki", "chowky", "chowki", "outpost", "out post",
+  "sub inspector office", "sub division", "sub-division",
+  "circle inspector", "commissionerate", "police commissioner",
+];
+
+const isRealPoliceStation = (name: string) => {
+  const n = (name || "").toLowerCase();
+  if (EXCLUDE_PATTERNS.some((p) => n.includes(p))) return false;
+  return INCLUDE_PATTERNS.some((p) => n.includes(p));
+};
+
 const NearbyStations = () => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -173,7 +196,7 @@ const NearbyStations = () => {
       };
       const { places: results } = await Place.searchNearby(request);
       if (results && results.length > 0) {
-        const found: Station[] = results.map((place: any) => ({
+        const mapped: Station[] = results.map((place: any) => ({
           name: place.displayName || "Police Station",
           address: place.formattedAddress || "Address not available",
           lat: place.location.lat(),
@@ -181,6 +204,9 @@ const NearbyStations = () => {
           open: true,
           placeId: place.id,
         }));
+        // Only main & sub police stations — drop IG bungalows, quarters, colonies, etc.
+        const filtered = mapped.filter((s) => isRealPoliceStation(s.name));
+        const found: Station[] = filtered.length > 0 ? filtered : [];
         found.sort((a, b) => getDistanceNum(location, a) - getDistanceNum(location, b));
         setStations(found);
         markersRef.current.forEach((m) => m.setMap(null));
