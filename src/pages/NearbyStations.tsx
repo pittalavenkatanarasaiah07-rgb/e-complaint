@@ -196,7 +196,7 @@ const NearbyStations = () => {
       };
       const { places: results } = await Place.searchNearby(request);
       if (results && results.length > 0) {
-        const found: Station[] = results.map((place: any) => ({
+        const mapped: Station[] = results.map((place: any) => ({
           name: place.displayName || "Police Station",
           address: place.formattedAddress || "Address not available",
           lat: place.location.lat(),
@@ -204,6 +204,9 @@ const NearbyStations = () => {
           open: true,
           placeId: place.id,
         }));
+        // Only main & sub police stations — drop IG bungalows, quarters, colonies, etc.
+        const filtered = mapped.filter((s) => isRealPoliceStation(s.name));
+        const found: Station[] = filtered.length > 0 ? filtered : [];
         found.sort((a, b) => getDistanceNum(location, a) - getDistanceNum(location, b));
         setStations(found);
         markersRef.current.forEach((m) => m.setMap(null));
