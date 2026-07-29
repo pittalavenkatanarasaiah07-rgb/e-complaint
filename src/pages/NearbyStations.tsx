@@ -4,8 +4,7 @@ import { MapPin, Clock, Navigation, Loader2, AlertCircle, Route, Car, Bike, Foot
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/useLanguage";
-
-const GOOGLE_API_KEY = "AIzaSyASY-gWNWZtkBySNO9dvdpMzz5NtyfgYzQ";
+import { loadGoogleMaps } from "@/lib/googleMaps";
 
 interface Station {
   name: string;
@@ -244,18 +243,13 @@ const NearbyStations = () => {
       searchNearbyStations(map, userLocation);
     };
 
-    if (!(window as any).google?.maps?.places) {
-      document.querySelectorAll('script[src*="maps.googleapis.com"]').forEach(s => s.remove());
-      delete (window as any).google;
-      const script = document.createElement("script");
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_API_KEY}&libraries=places`;
-      script.async = true;
-      script.onload = () => loadAndInit();
-      script.onerror = () => { setLocationError(true); setLoading(false); };
-      document.head.appendChild(script);
-    } else {
-      loadAndInit();
-    }
+    loadGoogleMaps()
+      .then(() => loadAndInit())
+      .catch((e) => {
+        console.error("Google Maps load failed:", e);
+        setLocationError(true);
+        setLoading(false);
+      });
   }, [userLocation, searchNearbyStations]);
 
   const scrollToMap = () => mapRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });

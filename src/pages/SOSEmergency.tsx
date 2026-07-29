@@ -9,8 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { AlertTriangle, Phone, MapPin, Users, CheckCircle, Hospital, Shield, Navigation, Loader2, UserPlus, Baby } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-
-const GOOGLE_API_KEY = "AIzaSyASY-gWNWZtkBySNO9dvdpMzz5NtyfgYzQ";
+import { loadGoogleMaps } from "@/lib/googleMaps";
 
 interface NearbyPlace {
   name: string;
@@ -45,16 +44,9 @@ const SOSEmergency = () => {
   const scriptLoadedRef = useRef(false);
 
   useEffect(() => {
-    if (!scriptLoadedRef.current && !window.google?.maps) {
-      const script = document.createElement("script");
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_API_KEY}&libraries=places`;
-      script.async = true;
-      script.defer = true;
-      script.onload = () => { scriptLoadedRef.current = true; };
-      document.head.appendChild(script);
-    } else {
-      scriptLoadedRef.current = true;
-    }
+    loadGoogleMaps()
+      .then(() => { scriptLoadedRef.current = true; })
+      .catch((e) => console.error("Google Maps load failed:", e));
   }, []);
 
   const findNearbyPlaces = async (lat: number, lng: number) => {
