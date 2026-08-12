@@ -5,9 +5,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
 import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
-import { FileText, Clock, CheckCircle, AlertTriangle, LogIn, XCircle, Loader2, Download } from "lucide-react";
+import { FileText, Clock, CheckCircle, AlertTriangle, LogIn, XCircle, Loader2, Download, Share2, Trash2, Table } from "lucide-react";
 import { toast } from "sonner";
-import { generateComplaintPdf } from "@/lib/complaintPdf";
+import { generateComplaintPdf, shareComplaintPdfToWhatsApp, complaintsToCsv } from "@/lib/complaintPdf";
 
 interface Complaint {
   id: string;
@@ -24,6 +24,7 @@ const MyComplaints = () => {
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
   const [withdrawingId, setWithdrawingId] = useState<string | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
 
   const statusConfig: Record<string, { icon: typeof Clock; color: string; label: string }> = {
     pending: { icon: Clock, color: "text-yellow-600", label: t("pending") },
@@ -57,6 +58,41 @@ const MyComplaints = () => {
     }
   };
 
+  const shareWhatsApp = async (items: Complaint[]) => {
+    if (items.length === 0) return;
+    try {
+      const result = await shareComplaintPdfToWhatsApp(items, {
+        name: (user?.user_metadata?.full_name as string) || null,
+        email: user?.email || null,
+      });
+      if (result === "downloaded") toast.info("PDF downloaded — attach it in the WhatsApp chat that opened");
+    } catch {
+      toast.error("Could not share the PDF report");
+    }
+  };
+
+  const exportCsv = () => {
+    if (complaints.length === 0) return;
+    try {
+      complaintsToCsv(complaints);
+      toast.success("CSV file downloaded");
+    } catch {
+      toast.error("Could not generate the CSV file");
+    }
+  };
+
+  const removeComplaint = async (id: string) => {
+    setRemovingId(id);
+    const { error } = await supabase.from("complaints").delete().eq("id", id);
+    setRemovingId(null);
+    if (error) {
+      toast.error("Could not remove the complaint request. Please try again.");
+      return;
+    }
+    setComplaints((prev) => prev.filter((c) => c.id !== id));
+    toast.success("Complaint request removed");
+  };
+
   useEffect(() => {
     if (!user) { setLoading(false); return; }
     const fetchComplaints = async () => {
@@ -88,9 +124,19 @@ const MyComplaints = () => {
           </div>
         ) : (
           <>
-          <Button onClick={() => exportPdf(complaints)} className="w-full rounded-xl">
-            <Download className="mr-2 h-4 w-4" /> Export all as PDF report
-          </Button>
+          <div className="space-y-2">
+            <Button onClick={() => exportPdf(complaints)} className="w-full rounded-xl">
+              <Download className="mr-2 h-4 w-4" /> Export all as PDF report
+            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={exportCsv} className="flex-1 rounded-xl text-xs">
+                <Table className="mr-1.5 h-4 w-4" /> Export CSV
+              </Button>
+              <Button variant="outline" onClick={() => shareWhatsApp(complaints)} className="flex-1 rounded-xl text-xs">
+                <Share2 className="mr-1.5 h-4 w-4" /> Share on WhatsApp
+              </Button>
+            </div>
+          </div>
           {complaints.map((c) => {
             const status = statusConfig[c.status] || statusConfig.pending;
             const StatusIcon = status.icon;
@@ -109,9 +155,12 @@ const MyComplaints = () => {
                   {c.location && <span className="truncate">📍 {c.location}</span>}
                   <span className="shrink-0">{new Date(c.created_at).toLocaleDateString()}</span>
                 </div>
-                <div className="mt-3 flex gap-2">
+                <div className="mt-3 flex flex-wrap gap-2">
                   <Button variant="outline" size="sm" onClick={() => exportPdf([c])} className="flex-1 rounded-xl text-xs">
                     <Download className="mr-1 h-3.5 w-3.5" /> PDF
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => shareWhatsApp([c])} className="flex-1 rounded-xl text-xs">
+                    <Share2 className="mr-1 h-3.5 w-3.5" /> WhatsApp
                   </Button>
                   {(c.status === "pending" || c.status === "in_progress") && (
                     <Button
@@ -119,10 +168,22 @@ const MyComplaints = () => {
                       size="sm"
                       disabled={withdrawingId === c.id}
                       onClick={() => withdrawComplaint(c.id)}
-                      className="flex-1 rounded-xl text-xs text-destructive hover:bg-destructive/10"
+                      className="w-full rounded-xl text-xs text-destructive hover:bg-destructive/10"
                     >
                       {withdrawingId === c.id ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <XCircle className="mr-1 h-3.5 w-3.5" />}
-                      Withdraw
+                      Withdraw complaint
+                    </Button>
+                  )}
+                  {c.status === "withdrawn" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={removingId === c.id}
+                      onClick={() => removeComplaint(c.id)}
+                      className="w-full rounded-xl text-xs text-destructive hover:bg-destructive/10"
+                    >
+                      {removingId === c.id ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Trash2 className="mr-1 h-3.5 w-3.5" />}
+                      Remove complaint request
                     </Button>
                   )}
                 </div>
