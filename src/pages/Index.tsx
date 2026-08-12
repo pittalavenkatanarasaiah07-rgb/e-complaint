@@ -113,7 +113,7 @@ const Index = () => {
             )}
           </div>
 
-          <Link to="/sos-emergency" className="fixed bottom-6 right-6 sm:bottom-8 sm:right-8 z-50">
+          <Link to="/sos-emergency?auto=1" aria-label="Send SOS alert" className="fixed bottom-6 right-6 sm:bottom-8 sm:right-8 z-50">
             <div className="relative">
               <div className="absolute inset-0 animate-pulse-ring rounded-full bg-emergency" />
               <div className="relative flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-emergency text-emergency-foreground shadow-elevated transition-transform hover:scale-105 active:scale-95">

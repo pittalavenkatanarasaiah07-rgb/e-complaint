@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import PageHeader from "@/components/PageHeader";
 declare const google: any;
 declare global { interface Window { google: any; } }
@@ -42,6 +42,8 @@ const SOSEmergency = () => {
   const { t } = useLanguage();
   const { user, session } = useAuth();
   const scriptLoadedRef = useRef(false);
+  const [searchParams] = useSearchParams();
+  const autoStartedRef = useRef(false);
 
   useEffect(() => {
     loadGoogleMaps()
@@ -129,7 +131,7 @@ const SOSEmergency = () => {
     }
   };
 
-  const handleActivate = () => {
+  const handleActivate = useCallback(() => {
     setActivated(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
@@ -150,7 +152,15 @@ const SOSEmergency = () => {
       () => { setLoadingPlaces(false); setAlertStatus("Location unavailable"); },
       { enableHighAccuracy: true }
     );
-  };
+  }, [session?.access_token]);
+
+  // Auto-activate when arriving from the dashboard SOS button (?auto=1)
+  useEffect(() => {
+    if (searchParams.get("auto") === "1" && !autoStartedRef.current) {
+      autoStartedRef.current = true;
+      handleActivate();
+    }
+  }, [searchParams, handleActivate]);
 
   const openDirections = (place: NearbyPlace) => {
     if (userLocation) {
