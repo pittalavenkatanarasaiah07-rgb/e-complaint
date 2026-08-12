@@ -5,8 +5,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
 import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
-import { FileText, Clock, CheckCircle, AlertTriangle, LogIn, XCircle, Loader2 } from "lucide-react";
+import { FileText, Clock, CheckCircle, AlertTriangle, LogIn, XCircle, Loader2, Download } from "lucide-react";
 import { toast } from "sonner";
+import { generateComplaintPdf } from "@/lib/complaintPdf";
 
 interface Complaint {
   id: string;
@@ -43,6 +44,19 @@ const MyComplaints = () => {
     toast.success("Complaint withdrawn");
   };
 
+  const exportPdf = (items: Complaint[]) => {
+    if (items.length === 0) return;
+    try {
+      generateComplaintPdf(items, {
+        name: (user?.user_metadata?.full_name as string) || null,
+        email: user?.email || null,
+      });
+      toast.success("PDF report downloaded");
+    } catch {
+      toast.error("Could not generate the PDF report");
+    }
+  };
+
   useEffect(() => {
     if (!user) { setLoading(false); return; }
     const fetchComplaints = async () => {
@@ -73,7 +87,11 @@ const MyComplaints = () => {
             <p className="text-sm text-muted-foreground">{t("noComplaints")}</p>
           </div>
         ) : (
-          complaints.map((c) => {
+          <>
+          <Button onClick={() => exportPdf(complaints)} className="w-full rounded-xl">
+            <Download className="mr-2 h-4 w-4" /> Export all as PDF report
+          </Button>
+          {complaints.map((c) => {
             const status = statusConfig[c.status] || statusConfig.pending;
             const StatusIcon = status.icon;
             return (
@@ -91,21 +109,27 @@ const MyComplaints = () => {
                   {c.location && <span className="truncate">📍 {c.location}</span>}
                   <span className="shrink-0">{new Date(c.created_at).toLocaleDateString()}</span>
                 </div>
-                {(c.status === "pending" || c.status === "in_progress") && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={withdrawingId === c.id}
-                    onClick={() => withdrawComplaint(c.id)}
-                    className="mt-3 w-full rounded-xl text-xs text-destructive hover:bg-destructive/10"
-                  >
-                    {withdrawingId === c.id ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <XCircle className="mr-1 h-3.5 w-3.5" />}
-                    Withdraw complaint
+                <div className="mt-3 flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => exportPdf([c])} className="flex-1 rounded-xl text-xs">
+                    <Download className="mr-1 h-3.5 w-3.5" /> PDF
                   </Button>
-                )}
+                  {(c.status === "pending" || c.status === "in_progress") && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={withdrawingId === c.id}
+                      onClick={() => withdrawComplaint(c.id)}
+                      className="flex-1 rounded-xl text-xs text-destructive hover:bg-destructive/10"
+                    >
+                      {withdrawingId === c.id ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <XCircle className="mr-1 h-3.5 w-3.5" />}
+                      Withdraw
+                    </Button>
+                  )}
+                </div>
               </div>
             );
-          })
+          })}
+          </>
         )}
       </main>
     </div>
