@@ -5,8 +5,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
 import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
-import { FileText, Clock, CheckCircle, AlertTriangle, LogIn, XCircle, Loader2 } from "lucide-react";
+import { FileText, Clock, CheckCircle, AlertTriangle, LogIn, XCircle, Loader2, Download } from "lucide-react";
 import { toast } from "sonner";
+import { generateComplaintPdf } from "@/lib/complaintPdf";
 
 interface Complaint {
   id: string;
@@ -32,6 +33,7 @@ const MyComplaints = () => {
   };
 
   const withdrawComplaint = async (id: string) => {
+    setWithdrawingId(id);
     setWithdrawingId(id);
     const { error } = await supabase.from("complaints").update({ status: "withdrawn" }).eq("id", id);
     setWithdrawingId(null);
