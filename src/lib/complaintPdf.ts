@@ -18,7 +18,7 @@ const statusLabel = (status: string) =>
 
 const title = (s: string) => s.replace(/[-_]/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
 
-export function generateComplaintPdf(
+function buildComplaintPdf(
   complaints: ComplaintReportItem[],
   meta: { name?: string | null; email?: string | null },
 ) {
@@ -104,6 +104,64 @@ export function generateComplaintPdf(
   }
 
   const stamp = new Date().toISOString().slice(0, 10);
-  const name = complaints.length === 1 ? `complaint-${complaints[0].id.slice(0, 8)}-${stamp}.pdf` : `my-complaints-${stamp}.pdf`;
-  doc.save(name);
+  const fileName = complaints.length === 1 ? `complaint-${complaints[0].id.slice(0, 8)}-${stamp}.pdf` : `my-complaints-${stamp}.pdf`;
+  return { doc, fileName };
+}
+
+export function generateComplaintPdf(
+  complaints: ComplaintReportItem[],
+  meta: { name?: string | null; email?: string | null },
+) {
+  const { doc, fileName } = buildComplaintPdf(complaints, meta);
+  doc.save(fileName);
+}
+
+export async function shareComplaintPdfToWhatsApp(
+  complaints: ComplaintReportItem[],
+  meta: { name?: string | null; email?: string | null },
+): Promise<"shared" | "downloaded"> {
+  const { doc, fileName } = buildComplaintPdf(complaints, meta);
+  const blob = doc.output("blob") as Blob;
+  const file = new File([blob], fileName, { type: "application/pdf" });
+  const text =
+    complaints.length === 1
+      ? `E-COMPLAINT report: ${title(complaints[0].complaint_type)} — status ${statusLabel(complaints[0].status)}`
+      : `E-COMPLAINT report: ${complaints.length} complaints with current status`;
+
+  const nav = navigator as Navigator & { canShare?: (data: ShareData) => boolean };
+  if (nav.share && nav.canShare?.({ files: [file] })) {
+    try {
+      await nav.share({ files: [file], title: "E-COMPLAINT report", text });
+      return "shared";
+    } catch (e) {
+      if ((e as DOMException)?.name === "AbortError") return "shared";
+    }
+  }
+
+  // Fallback: download the PDF and open WhatsApp with a prefilled message to attach it.
+  doc.save(fileName);
+  window.open(`https://wa.me/?text=${encodeURIComponent(`${text}\n(PDF report downloaded as ${fileName} — attach it here)`)}`, "_blank");
+  return "downloaded";
+}
+
+export function complaintsToCsv(complaints: ComplaintReportItem[]) {
+  const esc = (v: string) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const rows = [
+    ["Reference ID", "Complaint Type", "Status", "Filed On", "Location", "Description"],
+    ...complaints.map((c) => [
+      c.id,
+      title(c.complaint_type),
+      statusLabel(c.status),
+      new Date(c.created_at).toLocaleString(),
+      c.location || "",
+      (c.description || "").replace(/\r?\n/g, " "),
+    ]),
+  ];
+  const csv = "\uFEFF" + rows.map((r) => r.map(esc).join(",")).join("\r\n");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `my-complaints-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
