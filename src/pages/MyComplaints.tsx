@@ -5,7 +5,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
 import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
-import { FileText, Clock, CheckCircle, AlertTriangle, LogIn } from "lucide-react";
+import { FileText, Clock, CheckCircle, AlertTriangle, LogIn, XCircle, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 interface Complaint {
   id: string;
@@ -21,11 +22,25 @@ const MyComplaints = () => {
   const { t } = useLanguage();
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
+  const [withdrawingId, setWithdrawingId] = useState<string | null>(null);
 
-  const statusConfig: Record<string, { icon: typeof Clock; color: string; labelKey: "pending" | "inProgress" | "resolved" }> = {
-    pending: { icon: Clock, color: "text-yellow-600", labelKey: "pending" },
-    in_progress: { icon: AlertTriangle, color: "text-primary", labelKey: "inProgress" },
-    resolved: { icon: CheckCircle, color: "text-success", labelKey: "resolved" },
+  const statusConfig: Record<string, { icon: typeof Clock; color: string; label: string }> = {
+    pending: { icon: Clock, color: "text-yellow-600", label: t("pending") },
+    in_progress: { icon: AlertTriangle, color: "text-primary", label: t("inProgress") },
+    resolved: { icon: CheckCircle, color: "text-success", label: t("resolved") },
+    withdrawn: { icon: XCircle, color: "text-muted-foreground", label: "Withdrawn" },
+  };
+
+  const withdrawComplaint = async (id: string) => {
+    setWithdrawingId(id);
+    const { error } = await supabase.from("complaints").update({ status: "withdrawn" }).eq("id", id);
+    setWithdrawingId(null);
+    if (error) {
+      toast.error("Could not withdraw complaint. Please try again.");
+      return;
+    }
+    setComplaints((prev) => prev.map((c) => (c.id === id ? { ...c, status: "withdrawn" } : c)));
+    toast.success("Complaint withdrawn");
   };
 
   useEffect(() => {
@@ -69,13 +84,25 @@ const MyComplaints = () => {
                     <p className="text-xs text-muted-foreground line-clamp-2">{c.description}</p>
                   </div>
                   <span className={`flex items-center gap-1 text-xs font-medium shrink-0 ml-2 ${status.color}`}>
-                    <StatusIcon className="h-3.5 w-3.5" />{t(status.labelKey)}
+                    <StatusIcon className="h-3.5 w-3.5" />{status.label}
                   </span>
                 </div>
                 <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
                   {c.location && <span className="truncate">📍 {c.location}</span>}
                   <span className="shrink-0">{new Date(c.created_at).toLocaleDateString()}</span>
                 </div>
+                {(c.status === "pending" || c.status === "in_progress") && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={withdrawingId === c.id}
+                    onClick={() => withdrawComplaint(c.id)}
+                    className="mt-3 w-full rounded-xl text-xs text-destructive hover:bg-destructive/10"
+                  >
+                    {withdrawingId === c.id ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <XCircle className="mr-1 h-3.5 w-3.5" />}
+                    Withdraw complaint
+                  </Button>
+                )}
               </div>
             );
           })
