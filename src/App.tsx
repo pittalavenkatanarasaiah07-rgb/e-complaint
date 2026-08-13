@@ -12,6 +12,7 @@ import SOSEmergency from "./pages/SOSEmergency";
 import NearbyStations from "./pages/NearbyStations";
 import NearbyHospitals from "./pages/NearbyHospitals";
 import MyComplaints from "./pages/MyComplaints";
+import EvidenceView from "./pages/EvidenceView";
 import EmergencyContacts from "./pages/EmergencyContacts";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
@@ -34,6 +35,7 @@ const App = () => (
               <Route path="/nearby-stations" element={<NearbyStations />} />
               <Route path="/nearby-hospitals" element={<NearbyHospitals />} />
               <Route path="/my-complaints" element={<MyComplaints />} />
+              <Route path="/evidence" element={<EvidenceView />} />
               <Route path="/emergency-contacts" element={<EmergencyContacts />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="*" element={<NotFound />} />
