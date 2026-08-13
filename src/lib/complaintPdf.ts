@@ -5,6 +5,10 @@ export interface ComplaintEvidence {
   name: string;
   kind: "image" | "video" | "audio" | "file";
   url: string;
+  /** Permanent in-app link that re-signs the file on open (never expires). */
+  permanentUrl?: string;
+  /** Set when the signed URL could not be created after retries. */
+  unavailable?: boolean;
   dataUrl?: string;
   width?: number;
   height?: number;
@@ -57,27 +61,64 @@ const imageSize = (dataUrl: string) =>
     img.src = dataUrl;
   });
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Retries an async op with backoff; returns null when every attempt fails. */
+async function withRetry<T>(op: () => Promise<T>, attempts = 3, base = 400): Promise<T | null> {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await op();
+    } catch {
+      if (i < attempts - 1) await sleep(base * 2 ** i);
+    }
+  }
+  return null;
+}
+
+/** Long-lived signed URL (1 year) so shared PDFs keep working. */
+const SIGN_TTL = 60 * 60 * 24 * 365;
+
+/** Permanent app link that re-signs the evidence on demand. */
+export const evidencePermanentUrl = (userId: string, complaintId: string, name: string) =>
+  `${window.location.origin}/evidence?u=${encodeURIComponent(userId)}&c=${encodeURIComponent(complaintId)}&f=${encodeURIComponent(name)}`;
+
 /** Loads evidence files for a complaint: images inlined, media as playable signed links. */
 export async function loadComplaintEvidence(userId: string, complaintId: string): Promise<ComplaintEvidence[]> {
   const folder = `${userId}/${complaintId}`;
-  const { data: files, error } = await supabase.storage.from("complaint-evidence").list(folder);
-  if (error || !files?.length) return [];
+  const files = await withRetry(async () => {
+    const { data, error } = await supabase.storage.from("complaint-evidence").list(folder);
+    if (error) throw error;
+    return data;
+  });
+  if (!files?.length) return [];
   const out: ComplaintEvidence[] = [];
   for (const f of files) {
     const path = `${folder}/${f.name}`;
-    const { data: signed } = await supabase.storage.from("complaint-evidence").createSignedUrl(path, 60 * 60 * 24 * 7);
-    if (!signed?.signedUrl) continue;
     const kind = kindFor(f.name);
-    const item: ComplaintEvidence = { name: f.name, kind, url: signed.signedUrl };
-    if (kind === "image") {
-      try {
-        const blob = await (await fetch(signed.signedUrl)).blob();
-        item.dataUrl = await toDataUrl(blob);
-        const size = await imageSize(item.dataUrl);
+    const permanentUrl = evidencePermanentUrl(userId, complaintId, f.name);
+    const signed = await withRetry(async () => {
+      const { data, error } = await supabase.storage.from("complaint-evidence").createSignedUrl(path, SIGN_TTL);
+      if (error || !data?.signedUrl) throw error || new Error("no signed url");
+      return data.signedUrl;
+    });
+    const item: ComplaintEvidence = {
+      name: f.name,
+      kind,
+      url: signed || permanentUrl,
+      permanentUrl,
+      unavailable: !signed,
+    };
+    if (kind === "image" && signed) {
+      const dataUrl = await withRetry(async () => {
+        const res = await fetch(signed);
+        if (!res.ok) throw new Error(`status ${res.status}`);
+        return toDataUrl(await res.blob());
+      });
+      if (dataUrl) {
+        item.dataUrl = dataUrl;
+        const size = await imageSize(dataUrl);
         item.width = size.width;
         item.height = size.height;
-      } catch {
-        // keep it as a link if the image cannot be inlined
       }
     }
     out.push(item);
@@ -168,6 +209,7 @@ function buildComplaintPdf(
       y += 16;
 
       evidence.forEach((e) => {
+        const link = e.permanentUrl || e.url;
         if (e.kind === "image" && e.dataUrl) {
           const maxW = pageW - margin * 2 - 24;
           const ratio = e.height && e.width ? e.height / e.width : 0.75;
@@ -181,25 +223,34 @@ function buildComplaintPdf(
             doc.addImage(e.dataUrl, margin + 24, y, w, h);
           } catch {
             doc.setTextColor(60, 66, 78);
-            doc.textWithLink(`Open photo: ${e.name}`, margin + 24, y + 10, { url: e.url });
+            doc.textWithLink(`Open photo: ${e.name}`, margin + 24, y + 10, { url: link });
           }
           y += h + 14;
         } else {
           ensureSpace(20);
           const label =
-            e.kind === "video" ? `Video: ${e.name} — tap to play`
+            e.kind === "image" ? `Photo: ${e.name} — tap to open`
+            : e.kind === "video" ? `Video: ${e.name} — tap to play`
             : e.kind === "audio" ? `Audio: ${e.name} — tap to play`
             : `File: ${e.name} — tap to open`;
           doc.setTextColor(23, 78, 166);
-          doc.textWithLink(label, margin + 24, y, { url: e.url });
+          doc.textWithLink(label, margin + 24, y, { url: link });
           y += 15;
+          if (e.unavailable) {
+            ensureSpace(14);
+            doc.setFontSize(8);
+            doc.setTextColor(190, 60, 60);
+            doc.text("Direct link could not be prepared — this link reopens the file in the app.", margin + 34, y);
+            doc.setFontSize(10);
+            y += 12;
+          }
         }
         doc.setTextColor(60, 66, 78);
       });
       doc.setFontSize(8);
       doc.setTextColor(...GREY);
       ensureSpace(16);
-      doc.text("Media links open in your device player and stay valid for 7 days.", margin + 24, y);
+      doc.text("Media links open in the E-COMPLAINT app and never expire; sign in to play or download.", margin + 24, y);
       doc.setFontSize(10);
       y += 14;
     }

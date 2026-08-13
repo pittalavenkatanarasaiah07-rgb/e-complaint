@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import PageHeader from "@/components/PageHeader";
-import { FileText, Upload, CheckCircle, MapPin, LogIn, Camera, X, Image, Mic, Square } from "lucide-react";
+import { FileText, Upload, CheckCircle, MapPin, LogIn, Camera, X, Image, Mic, Square, Video } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -28,9 +28,11 @@ const FileComplaint = () => {
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [recording, setRecording] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -43,15 +45,52 @@ const FileComplaint = () => {
     );
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const MAX_VIDEO_MB = 100;
+
+  /** Downscales large photos in the browser so uploads are fast on mobile data. */
+  const compressImage = (file: File) =>
+    new Promise<File>((resolve) => {
+      if (!file.type.startsWith("image/") || file.size < 400 * 1024) return resolve(file);
+      const img = new window.Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        const max = 1600;
+        const scale = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(img.naturalWidth * scale);
+        canvas.height = Math.round(img.naturalHeight * scale);
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { URL.revokeObjectURL(url); return resolve(file); }
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(
+          (blob) => {
+            URL.revokeObjectURL(url);
+            if (!blob || blob.size >= file.size) return resolve(file);
+            resolve(new File([blob], file.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" }));
+          },
+          "image/jpeg",
+          0.72,
+        );
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+      img.src = url;
+    });
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
+    e.target.value = "";
     if (files.length + selectedFiles.length > 5) {
       toast.error("Maximum 5 files allowed");
       return;
     }
-    setSelectedFiles((prev) => [...prev, ...files]);
-    // Reset input so same file can be selected again
-    e.target.value = "";
+    const tooBig = files.filter((f) => f.type.startsWith("video/") && f.size > MAX_VIDEO_MB * 1024 * 1024);
+    if (tooBig.length) {
+      toast.error(`Video must be under ${MAX_VIDEO_MB}MB. Please trim it and try again.`);
+    }
+    const accepted = files.filter((f) => !tooBig.includes(f));
+    if (!accepted.length) return;
+    const prepared = await Promise.all(accepted.map(compressImage));
+    setSelectedFiles((prev) => [...prev, ...prepared]);
   };
 
   const removeFile = (index: number) => {
@@ -96,17 +135,38 @@ const FileComplaint = () => {
     }
   };
 
+  const uploadOne = async (file: File, complaintId: string, index: number) => {
+    const ext = file.name.split(".").pop() || "bin";
+    const path = `${user!.id}/${complaintId}/${Date.now()}_${index}.${ext}`;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const { error } = await supabase.storage
+        .from("complaint-evidence")
+        .upload(path, file, { contentType: file.type || undefined, cacheControl: "3600" });
+      if (!error) return path;
+      if (attempt === 2) {
+        console.error("Upload error:", error);
+        return null;
+      }
+      await new Promise((r) => setTimeout(r, 500 * 2 ** attempt));
+    }
+    return null;
+  };
+
+  /** Uploads all evidence in parallel with retries and live progress. */
   const uploadFiles = async (complaintId: string): Promise<string[]> => {
     if (!user || selectedFiles.length === 0) return [];
-    const urls: string[] = [];
-    for (const file of selectedFiles) {
-      const ext = file.name.split(".").pop();
-      const path = `${user.id}/${complaintId}/${Date.now()}.${ext}`;
-      const { error } = await supabase.storage.from("complaint-evidence").upload(path, file);
-      if (!error) urls.push(path);
-      else console.error("Upload error:", error);
-    }
-    return urls;
+    let done = 0;
+    const results = await Promise.all(
+      selectedFiles.map(async (file, i) => {
+        const path = await uploadOne(file, complaintId, i);
+        done += 1;
+        setProgress(Math.round((done / selectedFiles.length) * 100));
+        return path;
+      }),
+    );
+    const failed = results.filter((r) => r === null).length;
+    if (failed) toast.error(`${failed} evidence file(s) failed to upload. You can add them again later.`);
+    return results.filter((r): r is string => r !== null);
   };
 
   const handleSubmit = async () => {
@@ -114,6 +174,7 @@ const FileComplaint = () => {
     if (!complaintType || !description) { toast.error("Please fill required fields"); return; }
     setLoading(true);
     setUploading(selectedFiles.length > 0);
+    setProgress(0);
     const { data, error } = await supabase.from("complaints").insert({ user_id: user.id, complaint_type: complaintType, description, location, latitude: coords?.lat, longitude: coords?.lng }).select().single();
     if (error) { toast.error(error.message); setLoading(false); setUploading(false); return; }
     if (selectedFiles.length > 0) await uploadFiles(data.id);
@@ -185,6 +246,9 @@ const FileComplaint = () => {
                 <Image className="mr-2 h-4 w-4" /> Gallery
               </Button>
             </div>
+            <Button type="button" variant="outline" className="w-full rounded-xl" onClick={() => videoInputRef.current?.click()}>
+              <Video className="mr-2 h-4 w-4" /> Upload Video
+            </Button>
             <div className="flex gap-2">
               {!recording ? (
                 <Button type="button" variant="outline" className="flex-1 rounded-xl" onClick={startRecording}>
@@ -201,6 +265,7 @@ const FileComplaint = () => {
             </div>
             <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileSelect} />
             <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple className="hidden" onChange={handleFileSelect} />
+            <input ref={videoInputRef} type="file" accept="video/*" multiple className="hidden" onChange={handleFileSelect} />
             <input ref={audioInputRef} type="file" accept="audio/*" multiple className="hidden" onChange={handleFileSelect} />
             {selectedFiles.length > 0 && (
               <div className="space-y-2">
@@ -210,10 +275,15 @@ const FileComplaint = () => {
                       <img src={URL.createObjectURL(file)} alt="" className="h-10 w-10 rounded object-cover" />
                     ) : file.type.startsWith("audio/") ? (
                       <div className="flex h-10 w-10 items-center justify-center rounded bg-primary/10"><Mic className="h-4 w-4 text-primary" /></div>
+                    ) : file.type.startsWith("video/") ? (
+                      <div className="flex h-10 w-10 items-center justify-center rounded bg-primary/10"><Video className="h-4 w-4 text-primary" /></div>
                     ) : (
                       <div className="flex h-10 w-10 items-center justify-center rounded bg-muted"><Upload className="h-4 w-4 text-muted-foreground" /></div>
                     )}
-                    <span className="flex-1 text-xs text-foreground truncate">{file.name}</span>
+                    <span className="flex-1 truncate text-xs text-foreground">
+                      {file.name}
+                      <span className="ml-1 text-muted-foreground">({(file.size / 1024 / 1024).toFixed(1)}MB)</span>
+                    </span>
                     <button onClick={() => removeFile(i)} className="shrink-0 text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
                   </div>
                 ))}
@@ -228,7 +298,7 @@ const FileComplaint = () => {
           </div>
         </div>
         <Button className="w-full rounded-xl py-6 text-base font-semibold shadow-elevated" onClick={handleSubmit} disabled={loading || recording}>
-          <FileText className="mr-2 h-5 w-5" />{uploading ? "Uploading evidence..." : loading ? t("submitting") : t("submitComplaint")}
+          <FileText className="mr-2 h-5 w-5" />{uploading ? `Uploading evidence… ${progress}%` : loading ? t("submitting") : t("submitComplaint")}
         </Button>
       </main>
     </div>
