@@ -156,6 +156,53 @@ function buildComplaintPdf(
       y += 13;
     });
     y += 10;
+
+    const evidence = c.evidence || [];
+    if (evidence.length) {
+      ensureSpace(24);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...NAVY);
+      doc.text(`Evidence (${evidence.length})`, margin + 12, y);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(60, 66, 78);
+      y += 16;
+
+      evidence.forEach((e) => {
+        if (e.kind === "image" && e.dataUrl) {
+          const maxW = pageW - margin * 2 - 24;
+          const ratio = e.height && e.width ? e.height / e.width : 0.75;
+          const w = Math.min(maxW, 300);
+          const h = Math.min(w * ratio, 260);
+          ensureSpace(h + 26);
+          doc.setTextColor(...GREY);
+          doc.text(`Photo: ${e.name}`, margin + 24, y);
+          y += 10;
+          try {
+            doc.addImage(e.dataUrl, margin + 24, y, w, h);
+          } catch {
+            doc.setTextColor(60, 66, 78);
+            doc.textWithLink(`Open photo: ${e.name}`, margin + 24, y + 10, { url: e.url });
+          }
+          y += h + 14;
+        } else {
+          ensureSpace(20);
+          const label =
+            e.kind === "video" ? `Video: ${e.name} — tap to play`
+            : e.kind === "audio" ? `Audio: ${e.name} — tap to play`
+            : `File: ${e.name} — tap to open`;
+          doc.setTextColor(23, 78, 166);
+          doc.textWithLink(label, margin + 24, y, { url: e.url });
+          y += 15;
+        }
+        doc.setTextColor(60, 66, 78);
+      });
+      doc.setFontSize(8);
+      doc.setTextColor(...GREY);
+      ensureSpace(16);
+      doc.text("Media links open in your device player and stay valid for 7 days.", margin + 24, y);
+      doc.setFontSize(10);
+      y += 14;
+    }
     doc.setDrawColor(235, 238, 242);
     doc.line(margin, y, pageW - margin, y);
     y += 20;
