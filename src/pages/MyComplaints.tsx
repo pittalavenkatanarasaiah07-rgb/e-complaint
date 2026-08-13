@@ -5,9 +5,20 @@ import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
 import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
-import { FileText, Clock, CheckCircle, AlertTriangle, LogIn, XCircle, Loader2, Download, Share2, Trash2, Table } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { FileText, Clock, CheckCircle, AlertTriangle, LogIn, XCircle, Loader2, Download, Share2, Trash2, Table, Search } from "lucide-react";
 import { toast } from "sonner";
-import { generateComplaintPdf, shareComplaintPdfToWhatsApp, complaintsToCsv } from "@/lib/complaintPdf";
+import { generateComplaintPdf, shareComplaintPdfToWhatsApp, complaintsToCsv, formatReferenceId } from "@/lib/complaintPdf";
 
 interface Complaint {
   id: string;
@@ -25,6 +36,8 @@ const MyComplaints = () => {
   const [loading, setLoading] = useState(true);
   const [withdrawingId, setWithdrawingId] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   const statusConfig: Record<string, { icon: typeof Clock; color: string; label: string }> = {
     pending: { icon: Clock, color: "text-yellow-600", label: t("pending") },
@@ -85,6 +98,7 @@ const MyComplaints = () => {
     setRemovingId(id);
     const { error } = await supabase.from("complaints").delete().eq("id", id);
     setRemovingId(null);
+    setConfirmRemoveId(null);
     if (error) {
       toast.error("Could not remove the complaint request. Please try again.");
       return;
