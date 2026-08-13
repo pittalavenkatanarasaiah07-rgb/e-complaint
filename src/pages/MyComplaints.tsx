@@ -5,9 +5,20 @@ import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
 import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
-import { FileText, Clock, CheckCircle, AlertTriangle, LogIn, XCircle, Loader2, Download, Share2, Trash2, Table } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { FileText, Clock, CheckCircle, AlertTriangle, LogIn, XCircle, Loader2, Download, Share2, Trash2, Table, Search } from "lucide-react";
 import { toast } from "sonner";
-import { generateComplaintPdf, shareComplaintPdfToWhatsApp, complaintsToCsv } from "@/lib/complaintPdf";
+import { generateComplaintPdf, shareComplaintPdfToWhatsApp, complaintsToCsv, formatReferenceId } from "@/lib/complaintPdf";
 
 interface Complaint {
   id: string;
@@ -25,6 +36,8 @@ const MyComplaints = () => {
   const [loading, setLoading] = useState(true);
   const [withdrawingId, setWithdrawingId] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   const statusConfig: Record<string, { icon: typeof Clock; color: string; label: string }> = {
     pending: { icon: Clock, color: "text-yellow-600", label: t("pending") },
@@ -85,6 +98,7 @@ const MyComplaints = () => {
     setRemovingId(id);
     const { error } = await supabase.from("complaints").delete().eq("id", id);
     setRemovingId(null);
+    setConfirmRemoveId(null);
     if (error) {
       toast.error("Could not remove the complaint request. Please try again.");
       return;
@@ -102,6 +116,11 @@ const MyComplaints = () => {
     };
     fetchComplaints();
   }, [user]);
+
+  const query = search.trim().replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+  const filtered = query
+    ? complaints.filter((c) => formatReferenceId(c.id).includes(query))
+    : complaints;
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -137,7 +156,19 @@ const MyComplaints = () => {
               </Button>
             </div>
           </div>
-          {complaints.map((c) => {
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by reference number"
+              className="rounded-xl pl-9"
+            />
+          </div>
+          {filtered.length === 0 && (
+            <p className="py-8 text-center text-sm text-muted-foreground">No complaint found for that reference number</p>
+          )}
+          {filtered.map((c) => {
             const status = statusConfig[c.status] || statusConfig.pending;
             const StatusIcon = status.icon;
             return (
@@ -145,6 +176,7 @@ const MyComplaints = () => {
                 <div className="flex items-start justify-between">
                   <div className="space-y-1 min-w-0 flex-1">
                     <h3 className="font-semibold text-foreground capitalize">{c.complaint_type.replace(/-/g, " ")}</h3>
+                    <p className="font-mono text-xs text-primary">#{formatReferenceId(c.id)}</p>
                     <p className="text-xs text-muted-foreground line-clamp-2">{c.description}</p>
                   </div>
                   <span className={`flex items-center gap-1 text-xs font-medium shrink-0 ml-2 ${status.color}`}>
@@ -179,7 +211,7 @@ const MyComplaints = () => {
                       variant="outline"
                       size="sm"
                       disabled={removingId === c.id}
-                      onClick={() => removeComplaint(c.id)}
+                      onClick={() => setConfirmRemoveId(c.id)}
                       className="w-full rounded-xl text-xs text-destructive hover:bg-destructive/10"
                     >
                       {removingId === c.id ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Trash2 className="mr-1 h-3.5 w-3.5" />}
@@ -193,6 +225,31 @@ const MyComplaints = () => {
           </>
         )}
       </main>
+      <AlertDialog open={!!confirmRemoveId} onOpenChange={(o) => !o && setConfirmRemoveId(null)}>
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this complaint request?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently deletes the withdrawn complaint
+              {confirmRemoveId ? ` #${formatReferenceId(confirmRemoveId)}` : ""} and its record. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={!!removingId}
+              onClick={(e) => {
+                e.preventDefault();
+                if (confirmRemoveId) removeComplaint(confirmRemoveId);
+              }}
+            >
+              {removingId ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
+              Delete permanently
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

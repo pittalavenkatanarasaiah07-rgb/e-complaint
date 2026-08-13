@@ -18,6 +18,10 @@ const statusLabel = (status: string) =>
 
 const title = (s: string) => s.replace(/[-_]/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
 
+/** Stable 12-character reference ID derived from the complaint UUID. */
+export const formatReferenceId = (id: string) =>
+  id.replace(/-/g, "").slice(0, 12).toUpperCase();
+
 function buildComplaintPdf(
   complaints: ComplaintReportItem[],
   meta: { name?: string | null; email?: string | null },
@@ -79,7 +83,7 @@ function buildComplaintPdf(
     y += 16;
 
     doc.setTextColor(60, 66, 78);
-    doc.text(`Reference: ${c.id}`, margin + 12, y); y += 13;
+    doc.text(`Reference: ${formatReferenceId(c.id)}`, margin + 12, y); y += 13;
     doc.text(`Filed on: ${new Date(c.created_at).toLocaleString()}`, margin + 12, y); y += 13;
     doc.text(`Location: ${c.location || "Not provided"}`, margin + 12, y); y += 13;
     doc.text("Description:", margin + 12, y); y += 13;
@@ -104,7 +108,10 @@ function buildComplaintPdf(
   }
 
   const stamp = new Date().toISOString().slice(0, 10);
-  const fileName = complaints.length === 1 ? `complaint-${complaints[0].id.slice(0, 8)}-${stamp}.pdf` : `my-complaints-${stamp}.pdf`;
+  const fileName =
+    complaints.length === 1
+      ? `complaint-${formatReferenceId(complaints[0].id)}-${stamp}.pdf`
+      : `my-complaints-${stamp}.pdf`;
   return { doc, fileName };
 }
 
@@ -123,10 +130,17 @@ export async function shareComplaintPdfToWhatsApp(
   const { doc, fileName } = buildComplaintPdf(complaints, meta);
   const blob = doc.output("blob") as Blob;
   const file = new File([blob], fileName, { type: "application/pdf" });
+  const line = (c: ComplaintReportItem) =>
+    [
+      `Ref: ${formatReferenceId(c.id)}`,
+      `Type: ${title(c.complaint_type)}`,
+      `Status: ${statusLabel(c.status)}`,
+      `Location: ${c.location || "Not provided"}`,
+    ].join("\n");
   const text =
     complaints.length === 1
-      ? `E-COMPLAINT report: ${title(complaints[0].complaint_type)} — status ${statusLabel(complaints[0].status)}`
-      : `E-COMPLAINT report: ${complaints.length} complaints with current status`;
+      ? `E-COMPLAINT report\n${line(complaints[0])}`
+      : `E-COMPLAINT report — ${complaints.length} complaints\n\n${complaints.map(line).join("\n\n")}`;
 
   const nav = navigator as Navigator & { canShare?: (data: ShareData) => boolean };
   if (nav.share && nav.canShare?.({ files: [file] })) {
@@ -149,7 +163,7 @@ export function complaintsToCsv(complaints: ComplaintReportItem[]) {
   const rows = [
     ["Reference ID", "Complaint Type", "Status", "Filed On", "Location", "Description"],
     ...complaints.map((c) => [
-      c.id,
+      formatReferenceId(c.id),
       title(c.complaint_type),
       statusLabel(c.status),
       new Date(c.created_at).toLocaleString(),
