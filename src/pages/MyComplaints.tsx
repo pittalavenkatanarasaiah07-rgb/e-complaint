@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { FileText, Clock, CheckCircle, AlertTriangle, LogIn, XCircle, Loader2, Download, Share2, Trash2, Table, Search } from "lucide-react";
 import { toast } from "sonner";
-import { generateComplaintPdf, shareComplaintPdfToWhatsApp, complaintsToCsv, formatReferenceId } from "@/lib/complaintPdf";
+import { generateComplaintPdf, shareComplaintPdfToWhatsApp, complaintsToCsv, formatReferenceId, loadComplaintEvidence } from "@/lib/complaintPdf";
 
 interface Complaint {
   id: string;
@@ -58,10 +58,17 @@ const MyComplaints = () => {
     toast.success("Complaint withdrawn");
   };
 
-  const exportPdf = (items: Complaint[]) => {
+  const withEvidence = async (items: Complaint[]) => {
+    if (!user) return items;
+    return Promise.all(
+      items.map(async (c) => ({ ...c, evidence: await loadComplaintEvidence(user.id, c.id) })),
+    );
+  };
+
+  const exportPdf = async (items: Complaint[]) => {
     if (items.length === 0) return;
     try {
-      generateComplaintPdf(items, {
+      generateComplaintPdf(await withEvidence(items), {
         name: (user?.user_metadata?.full_name as string) || null,
         email: user?.email || null,
       });
@@ -74,7 +81,7 @@ const MyComplaints = () => {
   const shareWhatsApp = async (items: Complaint[]) => {
     if (items.length === 0) return;
     try {
-      const result = await shareComplaintPdfToWhatsApp(items, {
+      const result = await shareComplaintPdfToWhatsApp(await withEvidence(items), {
         name: (user?.user_metadata?.full_name as string) || null,
         email: user?.email || null,
       });
