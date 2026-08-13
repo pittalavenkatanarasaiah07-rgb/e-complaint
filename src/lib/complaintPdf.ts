@@ -1,4 +1,14 @@
 import jsPDF from "jspdf";
+import { supabase } from "@/integrations/supabase/client";
+
+export interface ComplaintEvidence {
+  name: string;
+  kind: "image" | "video" | "audio" | "file";
+  url: string;
+  dataUrl?: string;
+  width?: number;
+  height?: number;
+}
 
 export interface ComplaintReportItem {
   id: string;
@@ -7,6 +17,7 @@ export interface ComplaintReportItem {
   location: string | null;
   status: string;
   created_at: string;
+  evidence?: ComplaintEvidence[];
 }
 
 const NAVY: [number, number, number] = [23, 42, 84];
@@ -21,6 +32,58 @@ const title = (s: string) => s.replace(/[-_]/g, " ").replace(/\b\w/g, (m) => m.t
 /** Stable 12-character reference ID derived from the complaint UUID. */
 export const formatReferenceId = (id: string) =>
   id.replace(/-/g, "").slice(0, 12).toUpperCase();
+
+const kindFor = (name: string): ComplaintEvidence["kind"] => {
+  const ext = name.split(".").pop()?.toLowerCase() || "";
+  if (["jpg", "jpeg", "png", "webp", "gif", "bmp"].includes(ext)) return "image";
+  if (["mp4", "mov", "webm", "avi", "mkv", "m4v"].includes(ext)) return "video";
+  if (["mp3", "wav", "m4a", "aac", "ogg", "oga", "opus"].includes(ext)) return "audio";
+  return "file";
+};
+
+const toDataUrl = (blob: Blob) =>
+  new Promise<string>((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result as string);
+    r.onerror = reject;
+    r.readAsDataURL(blob);
+  });
+
+const imageSize = (dataUrl: string) =>
+  new Promise<{ width: number; height: number }>((resolve) => {
+    const img = new window.Image();
+    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    img.onerror = () => resolve({ width: 4, height: 3 });
+    img.src = dataUrl;
+  });
+
+/** Loads evidence files for a complaint: images inlined, media as playable signed links. */
+export async function loadComplaintEvidence(userId: string, complaintId: string): Promise<ComplaintEvidence[]> {
+  const folder = `${userId}/${complaintId}`;
+  const { data: files, error } = await supabase.storage.from("complaint-evidence").list(folder);
+  if (error || !files?.length) return [];
+  const out: ComplaintEvidence[] = [];
+  for (const f of files) {
+    const path = `${folder}/${f.name}`;
+    const { data: signed } = await supabase.storage.from("complaint-evidence").createSignedUrl(path, 60 * 60 * 24 * 7);
+    if (!signed?.signedUrl) continue;
+    const kind = kindFor(f.name);
+    const item: ComplaintEvidence = { name: f.name, kind, url: signed.signedUrl };
+    if (kind === "image") {
+      try {
+        const blob = await (await fetch(signed.signedUrl)).blob();
+        item.dataUrl = await toDataUrl(blob);
+        const size = await imageSize(item.dataUrl);
+        item.width = size.width;
+        item.height = size.height;
+      } catch {
+        // keep it as a link if the image cannot be inlined
+      }
+    }
+    out.push(item);
+  }
+  return out;
+}
 
 function buildComplaintPdf(
   complaints: ComplaintReportItem[],
