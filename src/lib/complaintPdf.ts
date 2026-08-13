@@ -5,6 +5,10 @@ export interface ComplaintEvidence {
   name: string;
   kind: "image" | "video" | "audio" | "file";
   url: string;
+  /** Permanent in-app link that re-signs the file on open (never expires). */
+  permanentUrl?: string;
+  /** Set when the signed URL could not be created after retries. */
+  unavailable?: boolean;
   dataUrl?: string;
   width?: number;
   height?: number;
@@ -57,27 +61,64 @@ const imageSize = (dataUrl: string) =>
     img.src = dataUrl;
   });
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Retries an async op with backoff; returns null when every attempt fails. */
+async function withRetry<T>(op: () => Promise<T>, attempts = 3, base = 400): Promise<T | null> {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await op();
+    } catch {
+      if (i < attempts - 1) await sleep(base * 2 ** i);
+    }
+  }
+  return null;
+}
+
+/** Long-lived signed URL (1 year) so shared PDFs keep working. */
+const SIGN_TTL = 60 * 60 * 24 * 365;
+
+/** Permanent app link that re-signs the evidence on demand. */
+export const evidencePermanentUrl = (userId: string, complaintId: string, name: string) =>
+  `${window.location.origin}/evidence?u=${encodeURIComponent(userId)}&c=${encodeURIComponent(complaintId)}&f=${encodeURIComponent(name)}`;
+
 /** Loads evidence files for a complaint: images inlined, media as playable signed links. */
 export async function loadComplaintEvidence(userId: string, complaintId: string): Promise<ComplaintEvidence[]> {
   const folder = `${userId}/${complaintId}`;
-  const { data: files, error } = await supabase.storage.from("complaint-evidence").list(folder);
-  if (error || !files?.length) return [];
+  const files = await withRetry(async () => {
+    const { data, error } = await supabase.storage.from("complaint-evidence").list(folder);
+    if (error) throw error;
+    return data;
+  });
+  if (!files?.length) return [];
   const out: ComplaintEvidence[] = [];
   for (const f of files) {
     const path = `${folder}/${f.name}`;
-    const { data: signed } = await supabase.storage.from("complaint-evidence").createSignedUrl(path, 60 * 60 * 24 * 7);
-    if (!signed?.signedUrl) continue;
     const kind = kindFor(f.name);
-    const item: ComplaintEvidence = { name: f.name, kind, url: signed.signedUrl };
-    if (kind === "image") {
-      try {
-        const blob = await (await fetch(signed.signedUrl)).blob();
-        item.dataUrl = await toDataUrl(blob);
-        const size = await imageSize(item.dataUrl);
+    const permanentUrl = evidencePermanentUrl(userId, complaintId, f.name);
+    const signed = await withRetry(async () => {
+      const { data, error } = await supabase.storage.from("complaint-evidence").createSignedUrl(path, SIGN_TTL);
+      if (error || !data?.signedUrl) throw error || new Error("no signed url");
+      return data.signedUrl;
+    });
+    const item: ComplaintEvidence = {
+      name: f.name,
+      kind,
+      url: signed || permanentUrl,
+      permanentUrl,
+      unavailable: !signed,
+    };
+    if (kind === "image" && signed) {
+      const dataUrl = await withRetry(async () => {
+        const res = await fetch(signed);
+        if (!res.ok) throw new Error(`status ${res.status}`);
+        return toDataUrl(await res.blob());
+      });
+      if (dataUrl) {
+        item.dataUrl = dataUrl;
+        const size = await imageSize(dataUrl);
         item.width = size.width;
         item.height = size.height;
-      } catch {
-        // keep it as a link if the image cannot be inlined
       }
     }
     out.push(item);
