@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
 import { toast } from "sonner";
+import { formatReferenceId } from "@/lib/complaintPdf";
 
 const crimeTypeKeys = ["theft", "assault", "fraud", "harassment", "domesticViolence", "missingPerson", "other"] as const;
 
@@ -118,7 +119,7 @@ const FileComplaint = () => {
     if (selectedFiles.length > 0) await uploadFiles(data.id);
     setUploading(false);
     setLoading(false);
-    setRefId(data.id.slice(0, 8).toUpperCase());
+    setRefId(formatReferenceId(data.id));
     setSubmitted(true);
   };
 
@@ -130,7 +131,7 @@ const FileComplaint = () => {
           <div className="flex h-20 w-20 items-center justify-center rounded-full bg-success/10"><CheckCircle className="h-10 w-10 text-success" /></div>
           <h2 className="text-xl font-bold text-foreground">{t("complaintFiled")}</h2>
           <p className="text-center text-sm text-muted-foreground">{t("complaintFiledDesc")}</p>
-          <p className="text-sm font-medium text-primary">Reference #SG-{refId}</p>
+          <p className="text-sm font-medium text-primary">Reference #{refId}</p>
           <Button onClick={() => navigate("/my-complaints")} variant="outline" className="rounded-xl">{t("viewMyComplaints")}</Button>
         </div>
       </div>
