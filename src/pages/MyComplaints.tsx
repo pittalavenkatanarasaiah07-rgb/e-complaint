@@ -117,6 +117,11 @@ const MyComplaints = () => {
     fetchComplaints();
   }, [user]);
 
+  const query = search.trim().replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+  const filtered = query
+    ? complaints.filter((c) => formatReferenceId(c.id).includes(query))
+    : complaints;
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <PageHeader title={t("myComplaints")} subtitle={t("trackComplaints")} />
@@ -151,7 +156,19 @@ const MyComplaints = () => {
               </Button>
             </div>
           </div>
-          {complaints.map((c) => {
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by reference number"
+              className="rounded-xl pl-9"
+            />
+          </div>
+          {filtered.length === 0 && (
+            <p className="py-8 text-center text-sm text-muted-foreground">No complaint found for that reference number</p>
+          )}
+          {filtered.map((c) => {
             const status = statusConfig[c.status] || statusConfig.pending;
             const StatusIcon = status.icon;
             return (
@@ -159,6 +176,7 @@ const MyComplaints = () => {
                 <div className="flex items-start justify-between">
                   <div className="space-y-1 min-w-0 flex-1">
                     <h3 className="font-semibold text-foreground capitalize">{c.complaint_type.replace(/-/g, " ")}</h3>
+                    <p className="font-mono text-xs text-primary">#{formatReferenceId(c.id)}</p>
                     <p className="text-xs text-muted-foreground line-clamp-2">{c.description}</p>
                   </div>
                   <span className={`flex items-center gap-1 text-xs font-medium shrink-0 ml-2 ${status.color}`}>
@@ -193,7 +211,7 @@ const MyComplaints = () => {
                       variant="outline"
                       size="sm"
                       disabled={removingId === c.id}
-                      onClick={() => removeComplaint(c.id)}
+                      onClick={() => setConfirmRemoveId(c.id)}
                       className="w-full rounded-xl text-xs text-destructive hover:bg-destructive/10"
                     >
                       {removingId === c.id ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Trash2 className="mr-1 h-3.5 w-3.5" />}
@@ -207,6 +225,31 @@ const MyComplaints = () => {
           </>
         )}
       </main>
+      <AlertDialog open={!!confirmRemoveId} onOpenChange={(o) => !o && setConfirmRemoveId(null)}>
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this complaint request?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently deletes the withdrawn complaint
+              {confirmRemoveId ? ` #${formatReferenceId(confirmRemoveId)}` : ""} and its record. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={!!removingId}
+              onClick={(e) => {
+                e.preventDefault();
+                if (confirmRemoveId) removeComplaint(confirmRemoveId);
+              }}
+            >
+              {removingId ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
+              Delete permanently
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
