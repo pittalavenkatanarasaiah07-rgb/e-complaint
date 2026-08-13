@@ -209,6 +209,7 @@ function buildComplaintPdf(
       y += 16;
 
       evidence.forEach((e) => {
+        const link = e.permanentUrl || e.url;
         if (e.kind === "image" && e.dataUrl) {
           const maxW = pageW - margin * 2 - 24;
           const ratio = e.height && e.width ? e.height / e.width : 0.75;
@@ -222,25 +223,34 @@ function buildComplaintPdf(
             doc.addImage(e.dataUrl, margin + 24, y, w, h);
           } catch {
             doc.setTextColor(60, 66, 78);
-            doc.textWithLink(`Open photo: ${e.name}`, margin + 24, y + 10, { url: e.url });
+            doc.textWithLink(`Open photo: ${e.name}`, margin + 24, y + 10, { url: link });
           }
           y += h + 14;
         } else {
           ensureSpace(20);
           const label =
-            e.kind === "video" ? `Video: ${e.name} — tap to play`
+            e.kind === "image" ? `Photo: ${e.name} — tap to open`
+            : e.kind === "video" ? `Video: ${e.name} — tap to play`
             : e.kind === "audio" ? `Audio: ${e.name} — tap to play`
             : `File: ${e.name} — tap to open`;
           doc.setTextColor(23, 78, 166);
-          doc.textWithLink(label, margin + 24, y, { url: e.url });
+          doc.textWithLink(label, margin + 24, y, { url: link });
           y += 15;
+          if (e.unavailable) {
+            ensureSpace(14);
+            doc.setFontSize(8);
+            doc.setTextColor(190, 60, 60);
+            doc.text("Direct link could not be prepared — this link reopens the file in the app.", margin + 34, y);
+            doc.setFontSize(10);
+            y += 12;
+          }
         }
         doc.setTextColor(60, 66, 78);
       });
       doc.setFontSize(8);
       doc.setTextColor(...GREY);
       ensureSpace(16);
-      doc.text("Media links open in your device player and stay valid for 7 days.", margin + 24, y);
+      doc.text("Media links open in the E-COMPLAINT app and never expire; sign in to play or download.", margin + 24, y);
       doc.setFontSize(10);
       y += 14;
     }
