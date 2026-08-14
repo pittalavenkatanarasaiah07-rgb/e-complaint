@@ -1,6 +1,6 @@
 # E-COMPLAINT
 
-This project was built with [Lovable](https://lovable.dev).
+This project was built with AI.
 
 **Live app**: https://e-complaint.lovable.app
 
