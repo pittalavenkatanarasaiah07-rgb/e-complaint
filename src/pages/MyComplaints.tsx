@@ -175,6 +175,9 @@ const MyComplaints = () => {
                 <Share2 className="mr-1.5 h-4 w-4" /> Share on WhatsApp
               </Button>
             </div>
+            <Button variant="outline" onClick={() => shareEmail(complaints)} className="w-full rounded-xl text-xs">
+              <Mail className="mr-1.5 h-4 w-4" /> Share by email (with PDF password)
+            </Button>
           </div>
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -213,6 +216,9 @@ const MyComplaints = () => {
                   </Button>
                   <Button variant="outline" size="sm" onClick={() => shareWhatsApp([c])} className="flex-1 rounded-xl text-xs">
                     <Share2 className="mr-1 h-3.5 w-3.5" /> WhatsApp
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => shareEmail([c])} className="flex-1 rounded-xl text-xs">
+                    <Mail className="mr-1 h-3.5 w-3.5" /> Email
                   </Button>
                   {(c.status === "pending" || c.status === "in_progress") && (
                     <Button
