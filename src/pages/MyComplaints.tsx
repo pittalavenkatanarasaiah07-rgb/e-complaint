@@ -16,9 +16,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { FileText, Clock, CheckCircle, AlertTriangle, LogIn, XCircle, Loader2, Download, Share2, Trash2, Table, Search } from "lucide-react";
+import { FileText, Clock, CheckCircle, AlertTriangle, LogIn, XCircle, Loader2, Download, Share2, Trash2, Table, Search, Mail } from "lucide-react";
 import { toast } from "sonner";
-import { generateComplaintPdf, shareComplaintPdfToWhatsApp, complaintsToCsv, formatReferenceId, loadComplaintEvidence } from "@/lib/complaintPdf";
+import { generateComplaintPdf, shareComplaintPdfToWhatsApp, shareComplaintPdfByEmail, complaintsToCsv, formatReferenceId, loadComplaintEvidence } from "@/lib/complaintPdf";
 
 interface Complaint {
   id: string;
@@ -92,6 +92,23 @@ const MyComplaints = () => {
   };
 
   const exportCsv = () => {
+    return exportCsvInner();
+  };
+
+  const shareEmail = async (items: Complaint[]) => {
+    if (items.length === 0) return;
+    try {
+      const { password } = shareComplaintPdfByEmail(await withEvidence(items), {
+        name: (user?.user_metadata?.full_name as string) || null,
+        email: user?.email || null,
+      });
+      toast.info(`PDF downloaded (password: ${password}) — attach it to the email that opened`, { duration: 8000 });
+    } catch {
+      toast.error("Could not prepare the email");
+    }
+  };
+
+  const exportCsvInner = () => {
     if (complaints.length === 0) return;
     try {
       complaintsToCsv(complaints);
