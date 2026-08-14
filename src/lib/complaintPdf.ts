@@ -341,6 +341,7 @@ export async function shareComplaintPdfToWhatsApp(
 }
 
 export function complaintsToCsv(complaints: ComplaintReportItem[]) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const esc = (v: string) => `"${String(v ?? "").replace(/"/g, '""')}"`;
   const rows = [
     ["Reference ID", "Complaint Type", "Status", "Filed On", "Location", "Description"],
