@@ -340,6 +340,47 @@ export async function shareComplaintPdfToWhatsApp(
   return { result: "downloaded", password };
 }
 
+/** Downloads the protected PDF and opens the mail app with ref, status and PDF password prefilled. */
+export function shareComplaintPdfByEmail(
+  complaints: ComplaintReportItem[],
+  meta: { name?: string | null; email?: string | null },
+  to = "",
+): { fileName: string; password: string } {
+  const { doc, fileName, password } = buildComplaintPdf(complaints, meta);
+  doc.save(fileName);
+
+  const block = (c: ComplaintReportItem) =>
+    [
+      `Reference: ${formatReferenceId(c.id)}`,
+      `Type: ${title(c.complaint_type)}`,
+      `Status: ${statusLabel(c.status)}`,
+      `Filed on: ${new Date(c.created_at).toLocaleString()}`,
+      `Location: ${c.location || "Not provided"}`,
+    ].join("\n");
+
+  const subject =
+    complaints.length === 1
+      ? `E-COMPLAINT report — Ref ${formatReferenceId(complaints[0].id)} (${statusLabel(complaints[0].status)})`
+      : `E-COMPLAINT report — ${complaints.length} complaints`;
+
+  const body = [
+    meta.name ? `Complainant: ${meta.name}` : null,
+    meta.email ? `Email: ${meta.email}` : null,
+    "",
+    complaints.map(block).join("\n\n"),
+    "",
+    `PDF password: ${password}`,
+    "(The password is the first 6 characters of the complaint reference number.)",
+    "",
+    `The report was downloaded as "${fileName}" — please attach it to this email before sending.`,
+  ]
+    .filter((l) => l !== null)
+    .join("\n");
+
+  window.location.href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  return { fileName, password };
+}
+
 export function complaintsToCsv(complaints: ComplaintReportItem[]) {
   const esc = (v: string) => `"${String(v ?? "").replace(/"/g, '""')}"`;
   const rows = [
