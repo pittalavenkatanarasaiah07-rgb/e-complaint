@@ -68,11 +68,11 @@ const MyComplaints = () => {
   const exportPdf = async (items: Complaint[]) => {
     if (items.length === 0) return;
     try {
-      generateComplaintPdf(await withEvidence(items), {
+      const password = generateComplaintPdf(await withEvidence(items), {
         name: (user?.user_metadata?.full_name as string) || null,
         email: user?.email || null,
       });
-      toast.success("PDF report downloaded");
+      toast.success(`PDF downloaded — password: ${password}`, { duration: 8000 });
     } catch {
       toast.error("Could not generate the PDF report");
     }
@@ -81,11 +81,11 @@ const MyComplaints = () => {
   const shareWhatsApp = async (items: Complaint[]) => {
     if (items.length === 0) return;
     try {
-      const result = await shareComplaintPdfToWhatsApp(await withEvidence(items), {
+      const { result, password } = await shareComplaintPdfToWhatsApp(await withEvidence(items), {
         name: (user?.user_metadata?.full_name as string) || null,
         email: user?.email || null,
       });
-      if (result === "downloaded") toast.info("PDF downloaded — attach it in the WhatsApp chat that opened");
+      if (result === "downloaded") toast.info(`PDF downloaded (password: ${password}) — attach it in the WhatsApp chat that opened`, { duration: 8000 });
     } catch {
       toast.error("Could not share the PDF report");
     }

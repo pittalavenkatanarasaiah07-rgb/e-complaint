@@ -37,6 +37,9 @@ const title = (s: string) => s.replace(/[-_]/g, " ").replace(/\b\w/g, (m) => m.t
 export const formatReferenceId = (id: string) =>
   id.replace(/-/g, "").slice(0, 12).toUpperCase();
 
+/** PDF open password: first six characters of the complaint reference number. */
+export const pdfPasswordFor = (id: string) => formatReferenceId(id).slice(0, 6);
+
 const kindFor = (name: string): ComplaintEvidence["kind"] => {
   const ext = name.split(".").pop()?.toLowerCase() || "";
   if (["jpg", "jpeg", "png", "webp", "gif", "bmp"].includes(ext)) return "image";
@@ -130,7 +133,20 @@ function buildComplaintPdf(
   complaints: ComplaintReportItem[],
   meta: { name?: string | null; email?: string | null },
 ) {
-  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const password = complaints.length ? pdfPasswordFor(complaints[0].id) : "";
+  const doc = new jsPDF({
+    unit: "pt",
+    format: "a4",
+    ...(password
+      ? {
+          encryption: {
+            userPassword: password,
+            ownerPassword: password,
+            userPermissions: ["print", "copy"],
+          },
+        }
+      : {}),
+  });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const margin = 48;
@@ -168,6 +184,10 @@ function buildComplaintPdf(
   if (meta.email) { doc.text(`Email: ${meta.email}`, margin, y); y += 14; }
   doc.text(`Total complaints: ${complaints.length}`, margin, y);
   y += 22;
+  if (password) {
+    doc.text(`Protected: opens with the first 6 characters of reference ${formatReferenceId(complaints[0].id)}`, margin, y);
+    y += 16;
+  }
   doc.setDrawColor(220, 224, 230);
   doc.line(margin, y, pageW - margin, y);
   y += 24;
@@ -273,22 +293,23 @@ function buildComplaintPdf(
     complaints.length === 1
       ? `complaint-${formatReferenceId(complaints[0].id)}-${stamp}.pdf`
       : `my-complaints-${stamp}.pdf`;
-  return { doc, fileName };
+  return { doc, fileName, password };
 }
 
 export function generateComplaintPdf(
   complaints: ComplaintReportItem[],
   meta: { name?: string | null; email?: string | null },
 ) {
-  const { doc, fileName } = buildComplaintPdf(complaints, meta);
+  const { doc, fileName, password } = buildComplaintPdf(complaints, meta);
   doc.save(fileName);
+  return password;
 }
 
 export async function shareComplaintPdfToWhatsApp(
   complaints: ComplaintReportItem[],
   meta: { name?: string | null; email?: string | null },
-): Promise<"shared" | "downloaded"> {
-  const { doc, fileName } = buildComplaintPdf(complaints, meta);
+): Promise<{ result: "shared" | "downloaded"; password: string }> {
+  const { doc, fileName, password } = buildComplaintPdf(complaints, meta);
   const blob = doc.output("blob") as Blob;
   const file = new File([blob], fileName, { type: "application/pdf" });
   const line = (c: ComplaintReportItem) =>
@@ -300,23 +321,23 @@ export async function shareComplaintPdfToWhatsApp(
     ].join("\n");
   const text =
     complaints.length === 1
-      ? `E-COMPLAINT report\n${line(complaints[0])}`
-      : `E-COMPLAINT report — ${complaints.length} complaints\n\n${complaints.map(line).join("\n\n")}`;
+      ? `E-COMPLAINT report\n${line(complaints[0])}\nPDF password: ${password}`
+      : `E-COMPLAINT report — ${complaints.length} complaints\n\n${complaints.map(line).join("\n\n")}\n\nPDF password: ${password}`;
 
   const nav = navigator as Navigator & { canShare?: (data: ShareData) => boolean };
   if (nav.share && nav.canShare?.({ files: [file] })) {
     try {
       await nav.share({ files: [file], title: "E-COMPLAINT report", text });
-      return "shared";
+      return { result: "shared", password };
     } catch (e) {
-      if ((e as DOMException)?.name === "AbortError") return "shared";
+      if ((e as DOMException)?.name === "AbortError") return { result: "shared", password };
     }
   }
 
   // Fallback: download the PDF and open WhatsApp with a prefilled message to attach it.
   doc.save(fileName);
   window.open(`https://wa.me/?text=${encodeURIComponent(`${text}\n(PDF report downloaded as ${fileName} — attach it here)`)}`, "_blank");
-  return "downloaded";
+  return { result: "downloaded", password };
 }
 
 export function complaintsToCsv(complaints: ComplaintReportItem[]) {
