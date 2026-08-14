@@ -1,7 +1,5 @@
 # E-COMPLAINT
 
-https://e-complaint.app.lovable.app
-
 This project was built with [Lovable](https://lovable.dev).
 
 **Live app**: https://e-complaint.lovable.app
