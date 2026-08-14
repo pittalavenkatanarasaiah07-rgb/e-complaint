@@ -91,10 +91,6 @@ const MyComplaints = () => {
     }
   };
 
-  const exportCsv = () => {
-    return exportCsvInner();
-  };
-
   const shareEmail = async (items: Complaint[]) => {
     if (items.length === 0) return;
     try {
@@ -108,7 +104,7 @@ const MyComplaints = () => {
     }
   };
 
-  const exportCsvInner = () => {
+  const exportCsv = () => {
     if (complaints.length === 0) return;
     try {
       complaintsToCsv(complaints);
