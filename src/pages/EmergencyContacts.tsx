@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import PageHeader from "@/components/PageHeader";
+import SendSmsCard from "@/components/SendSmsCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -150,6 +151,8 @@ const EmergencyContacts = () => {
             <Plus className="mr-2 h-4 w-4" /> Add Manually
           </Button>
         </div>
+
+        <SendSmsCard />
 
         {adding && (
           <div className="space-y-3 rounded-2xl border border-border bg-card p-4">
