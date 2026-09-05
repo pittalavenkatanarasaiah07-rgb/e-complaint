@@ -339,7 +339,7 @@ const SOSEmergency = () => {
               <Link to="/emergency-contacts"><UserPlus className="mr-2 h-4 w-4" /> Manage Contacts</Link>
             </Button>
 
-            <button onClick={() => { setActivated(false); setNearbyPlaces([]); setAlertStatus(""); setSmsFailures([]); setTrialWarning(null); }} className="text-sm font-medium text-muted-foreground hover:text-foreground">{t("cancelAlert")}</button>
+            <button onClick={() => { setActivated(false); setNearbyPlaces([]); setAlertStatus(""); setSmsFailures([]); }} className="text-sm font-medium text-muted-foreground hover:text-foreground">{t("cancelAlert")}</button>
           </>
         )}
       </main>
