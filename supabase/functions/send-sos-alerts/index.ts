@@ -72,8 +72,25 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Resolve a display name for the user (profile name, else email local part)
+    let senderName = "";
+    try {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user.id)
+        .maybeSingle();
+      senderName = (profile?.full_name || "").trim();
+    } catch (_e) {
+      senderName = "";
+    }
+    if (!senderName) {
+      const emailLocal = (user.email || "").split("@")[0].replace(/[._-]+/g, " ").trim();
+      senderName = emailLocal || "Your person";
+    }
+
     const mapsLink = `https://www.google.com/maps?q=${latitude},${longitude}`;
-    const smsBody = `Your person is in trouble.\nLocation: ${mapsLink}`;
+    const smsBody = `Your person ${senderName} is in trouble.\nLive location: ${mapsLink}`;
 
     // Check for GatewayAPI connector credentials
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
