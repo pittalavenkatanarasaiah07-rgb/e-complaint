@@ -2,7 +2,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.98.0";
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
-const GATEWAY_URL = "https://connector-gateway.lovable.dev/twilio";
+const GATEWAY_URL = "https://connector-gateway.lovable.dev/gatewayapi";
+const SMS_SENDER = "E-COMPLAINT";
 
 const isValidSmsPhone = (phone: string) => {
   const compact = (phone || "").replace(/\s/g, "");
@@ -38,44 +39,38 @@ Deno.serve(async (req) => {
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    const TWILIO_API_KEY = Deno.env.get("TWILIO_API_KEY");
-    if (!LOVABLE_API_KEY || !TWILIO_API_KEY) {
+    const GATEWAYAPI_API_KEY = Deno.env.get("GATEWAYAPI_API_KEY");
+    if (!LOVABLE_API_KEY || !GATEWAYAPI_API_KEY) {
       console.error("SMS credentials missing");
       return json({ success: false, message: "SMS service not configured" });
     }
     const gatewayHeaders = {
       "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-      "X-Connection-Api-Key": TWILIO_API_KEY,
+      "X-Connection-Api-Key": GATEWAYAPI_API_KEY,
+      "Content-Type": "application/json",
     };
 
-    const numResp = await fetch(`${GATEWAY_URL}/IncomingPhoneNumbers.json?PageSize=20`, { headers: gatewayHeaders });
-    const numData = await numResp.json();
-    if (!numResp.ok) {
-      console.error(`Twilio number lookup failed [${numResp.status}]:`, JSON.stringify(numData));
-      return json({ success: false, message: "Could not verify the SMS sender number" });
-    }
-    const from = (Array.isArray(numData?.incoming_phone_numbers) ? numData.incoming_phone_numbers : [])
-      .find((n: { capabilities?: { sms?: boolean } }) => n?.capabilities?.sms)?.phone_number as string | undefined;
-    if (!from) return json({ success: false, message: "No SMS-capable Twilio number on the connected account" });
-
-    const resp = await fetch(`${GATEWAY_URL}/Messages.json`, {
+    const recipient = Number(to.replace("+", ""));
+    const resp = await fetch(`${GATEWAY_URL}/mobile/single`, {
       method: "POST",
-      headers: { ...gatewayHeaders, "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ To: to, From: from, Body: parsed.data.message }),
+      headers: gatewayHeaders,
+      body: JSON.stringify({ sender: SMS_SENDER, recipient, message: parsed.data.message }),
     });
-    const data = await resp.json();
+    const responseText = await resp.text();
+    let data: Record<string, unknown> = {};
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+    } catch {
+      data = { message: responseText };
+    }
     if (!resp.ok) {
       console.error(`SMS to ${to} failed [${resp.status}]:`, JSON.stringify(data));
-      const trial = data?.code === 21608;
       return json({
         success: false,
-        trial,
-        message: trial
-          ? "This Twilio trial account can only text verified numbers. Verify this number in Twilio or upgrade the account."
-          : data?.message || "Twilio rejected the message",
+        message: typeof data.message === "string" ? data.message : "SMS provider rejected the message",
       });
     }
-    return json({ success: true, message: `Message sent to ${to}`, sid: data?.sid });
+    return json({ success: true, message: `Message sent to ${to}`, id: data.id });
   } catch (e) {
     console.error("send-sms error:", e);
     return json({ error: "Internal error" }, 500);
