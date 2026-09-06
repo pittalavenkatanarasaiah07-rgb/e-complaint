@@ -286,7 +286,7 @@ const SOSEmergency = () => {
                 <div>
                   <p className="text-sm font-medium text-foreground">{t("contactsNotified")}</p>
                   <p className="text-xs text-muted-foreground">
-                    {totalContacts > 0 ? `${contactsNotified}/${totalContacts} contacts notified via SMS` : "Add emergency contacts for SMS alerts"}
+                     {totalContacts > 0 ? `${contactsNotified}/${totalContacts} contacts accepted by SMS service` : "Add emergency contacts for SMS alerts"}
                   </p>
                 </div>
               </div>
