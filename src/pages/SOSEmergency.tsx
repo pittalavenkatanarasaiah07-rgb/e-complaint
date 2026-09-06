@@ -104,6 +104,9 @@ const SOSEmergency = () => {
   };
 
   const sendSOSAlerts = async (lat: number, lng: number) => {
+    setContactsNotified(0);
+    setTotalContacts(0);
+    setSmsFailures([]);
     if (!session?.access_token) {
       setAlertDeliveryConfirmed(false);
       setAlertStatus("Login required for SMS alerts");
@@ -116,6 +119,7 @@ const SOSEmergency = () => {
         body: { latitude: lat, longitude: lng },
       });
       if (error) {
+        setAlertDeliveryConfirmed(false);
         setAlertStatus("Alert recorded locally");
         return;
       }
@@ -125,6 +129,7 @@ const SOSEmergency = () => {
       setAlertStatus(data.message || "Alerts processed");
       setSmsFailures(Array.isArray(data.results) ? data.results.filter((r: SmsResult) => !r.sent) : []);
     } catch (e) {
+      setAlertDeliveryConfirmed(false);
       setAlertStatus("Alert recorded locally");
     }
   };
