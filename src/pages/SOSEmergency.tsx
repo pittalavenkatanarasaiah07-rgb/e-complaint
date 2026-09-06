@@ -38,6 +38,7 @@ const SOSEmergency = () => {
   const [contactsNotified, setContactsNotified] = useState(0);
   const [totalContacts, setTotalContacts] = useState(0);
   const [smsFailures, setSmsFailures] = useState<SmsResult[]>([]);
+  const [alertDeliveryConfirmed, setAlertDeliveryConfirmed] = useState(false);
   const { t } = useLanguage();
   const { user, session } = useAuth();
   const scriptLoadedRef = useRef(false);
@@ -104,10 +105,12 @@ const SOSEmergency = () => {
 
   const sendSOSAlerts = async (lat: number, lng: number) => {
     if (!session?.access_token) {
+      setAlertDeliveryConfirmed(false);
       setAlertStatus("Login required for SMS alerts");
       return;
     }
     try {
+      setAlertDeliveryConfirmed(false);
       setAlertStatus("Sending alerts...");
       const { data, error } = await supabase.functions.invoke("send-sos-alerts", {
         body: { latitude: lat, longitude: lng },
@@ -118,6 +121,7 @@ const SOSEmergency = () => {
       }
       setContactsNotified(data.notified || 0);
       setTotalContacts(data.total || 0);
+      setAlertDeliveryConfirmed(Boolean(data.success && data.notified > 0));
       setAlertStatus(data.message || "Alerts processed");
       setSmsFailures(Array.isArray(data.results) ? data.results.filter((r: SmsResult) => !r.sent) : []);
     } catch (e) {
@@ -220,6 +224,24 @@ const SOSEmergency = () => {
               <h2 className="text-lg font-bold text-foreground">{t("alertSent")}</h2>
               <p className="text-sm text-muted-foreground">{alertStatus || t("alertSentDesc")}</p>
             </div>
+
+             {alertDeliveryConfirmed ? (
+               <div className="flex w-full max-w-sm items-start gap-3 rounded-2xl border border-primary/30 bg-primary/10 p-4 text-left">
+                 <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                 <div>
+                   <p className="text-sm font-bold text-foreground">SOS alert confirmed</p>
+                   <p className="text-xs text-muted-foreground">Your saved contact(s) received the alert request with your live location.</p>
+                 </div>
+               </div>
+             ) : totalContacts > 0 && alertStatus && alertStatus !== "Sending alerts..." ? (
+               <div className="flex w-full max-w-sm items-start gap-3 rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-left">
+                 <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+                 <div>
+                   <p className="text-sm font-bold text-foreground">SMS delivery not confirmed</p>
+                   <p className="text-xs text-muted-foreground">No saved contact was confirmed as notified. Check the details below and try again.</p>
+                 </div>
+               </div>
+             ) : null}
 
             {/* Emergency Helplines - tap to call directly */}
             <div className="w-full max-w-sm rounded-2xl border-2 border-emergency/40 bg-card p-4 space-y-3 shadow-card">
@@ -339,7 +361,7 @@ const SOSEmergency = () => {
               <Link to="/emergency-contacts"><UserPlus className="mr-2 h-4 w-4" /> Manage Contacts</Link>
             </Button>
 
-            <button onClick={() => { setActivated(false); setNearbyPlaces([]); setAlertStatus(""); setSmsFailures([]); }} className="text-sm font-medium text-muted-foreground hover:text-foreground">{t("cancelAlert")}</button>
+             <button onClick={() => { setActivated(false); setNearbyPlaces([]); setAlertStatus(""); setSmsFailures([]); setAlertDeliveryConfirmed(false); }} className="text-sm font-medium text-muted-foreground hover:text-foreground">{t("cancelAlert")}</button>
           </>
         )}
       </main>

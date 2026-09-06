@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
       const { data: profile } = await supabase
         .from("profiles")
         .select("full_name")
-        .eq("id", user.id)
+        .eq("user_id", user.id)
         .maybeSingle();
       senderName = (profile?.full_name || "").trim();
     } catch (_e) {
