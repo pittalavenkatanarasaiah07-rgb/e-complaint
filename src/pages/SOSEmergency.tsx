@@ -234,8 +234,8 @@ const SOSEmergency = () => {
                <div className="flex w-full max-w-sm items-start gap-3 rounded-2xl border border-primary/30 bg-primary/10 p-4 text-left">
                  <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
                  <div>
-                   <p className="text-sm font-bold text-foreground">SOS alert confirmed</p>
-                   <p className="text-xs text-muted-foreground">Your saved contact(s) received the alert request with your live location.</p>
+                   <p className="text-sm font-bold text-foreground">SOS alert accepted</p>
+                   <p className="text-xs text-muted-foreground">The SMS service accepted the alert for your saved contact(s) with your live location.</p>
                  </div>
                </div>
              ) : totalContacts > 0 && alertStatus && alertStatus !== "Sending alerts..." ? (
