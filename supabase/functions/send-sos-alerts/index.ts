@@ -2,8 +2,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.98.0";
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
-const GATEWAY_URL = "https://connector-gateway.lovable.dev/gatewayapi";
-const SMS_SENDER = "E-COMPLAINT";
+const TWILIO_GATEWAY_URL = "https://connector-gateway.lovable.dev/twilio";
+const TWILIO_SENDER = "+15717280228";
 
 const isValidSmsPhone = (phone: string) => {
   const compact = (phone || "").replace(/\s/g, "");
@@ -92,27 +92,14 @@ Deno.serve(async (req) => {
     const mapsLink = `https://www.google.com/maps?q=${latitude},${longitude}`;
     const smsBody = `Your person ${senderName} is in trouble.\nLive location: ${mapsLink}`;
 
-    // Check for GatewayAPI connector credentials
+    // Send through the linked Twilio connection.
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      console.error("LOVABLE_API_KEY is not configured");
+    const TWILIO_API_KEY = Deno.env.get("TWILIO_API_KEY_1");
+    if (!LOVABLE_API_KEY || !TWILIO_API_KEY) {
+      console.error("Twilio credentials are not configured");
       return new Response(JSON.stringify({
         success: false,
-        message: "SMS service not configured",
-        notified: 0,
-        total: contacts.length,
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const GATEWAYAPI_API_KEY = Deno.env.get("GATEWAYAPI_API_KEY");
-    if (!GATEWAYAPI_API_KEY) {
-      console.error("GATEWAYAPI_API_KEY is not configured");
-      return new Response(JSON.stringify({
-        success: false,
-        message: "SMS service not configured",
+        message: "Twilio SMS service is not configured",
         notified: 0,
         total: contacts.length,
       }), {
@@ -136,37 +123,27 @@ Deno.serve(async (req) => {
       }
 
       try {
-        const recipient = Number(toNumber.replace("+", ""));
-        const resp = await fetch(`${GATEWAY_URL}/mobile/single`, {
+        const resp = await fetch(`${TWILIO_GATEWAY_URL}/Messages.json`, {
           method: "POST",
           headers: {
             "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-            "X-Connection-Api-Key": GATEWAYAPI_API_KEY,
-            "Content-Type": "application/json",
+            "X-Connection-Api-Key": TWILIO_API_KEY,
+            "Content-Type": "application/x-www-form-urlencoded",
           },
-          body: JSON.stringify({
-            sender: SMS_SENDER,
-            recipient,
-            message: smsBody,
-            reference: `sos-${user.id.slice(0, 8)}`,
-          }),
+          body: new URLSearchParams({ To: toNumber, From: TWILIO_SENDER, Body: smsBody }),
         });
         const responseText = await resp.text();
         let data: Record<string, unknown> = {};
-        try {
-          data = responseText ? JSON.parse(responseText) : {};
-        } catch {
-          data = { message: responseText };
-        }
+        try { data = responseText ? JSON.parse(responseText) : {}; } catch { data = { message: responseText }; }
         results.push({
           name: contact.name,
           phone: contact.phone,
           sent: resp.ok,
           errorCode: resp.ok ? undefined : typeof data.code === "number" ? data.code : undefined,
-          errorMessage: resp.ok ? undefined : typeof data.message === "string" ? data.message : "SMS provider rejected the message",
+          errorMessage: resp.ok ? undefined : typeof data.message === "string" ? data.message : "Twilio rejected the message",
         });
         if (!resp.ok) {
-          console.error(`GatewayAPI SMS to ${contact.phone} failed [${resp.status}]:`, JSON.stringify(data));
+          console.error(`Twilio SMS to ${contact.phone} failed [${resp.status}]:`, JSON.stringify(data));
         }
       } catch (e) {
         console.error(`SMS to ${contact.phone} error:`, e);

@@ -16,6 +16,7 @@ import EvidenceView from "./pages/EvidenceView";
 import EmergencyContacts from "./pages/EmergencyContacts";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
+import SafetyIntro from "./components/SafetyIntro";
 
 const queryClient = new QueryClient();
 
@@ -27,6 +28,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
+              <SafetyIntro />
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
