@@ -2,8 +2,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.98.0";
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
-const GATEWAY_URL = "https://connector-gateway.lovable.dev/gatewayapi";
-const SMS_SENDER = "E-COMPLAINT";
+const TWILIO_GATEWAY_URL = "https://connector-gateway.lovable.dev/twilio";
+const TWILIO_SENDER = "+15717280228";
 
 const isValidSmsPhone = (phone: string) => {
   const compact = (phone || "").replace(/\s/g, "");
@@ -39,22 +39,21 @@ Deno.serve(async (req) => {
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    const GATEWAYAPI_API_KEY = Deno.env.get("GATEWAYAPI_API_KEY");
-    if (!LOVABLE_API_KEY || !GATEWAYAPI_API_KEY) {
-      console.error("SMS credentials missing");
-      return json({ success: false, message: "SMS service not configured" });
+    const TWILIO_API_KEY = Deno.env.get("TWILIO_API_KEY_1");
+    if (!LOVABLE_API_KEY || !TWILIO_API_KEY) {
+      console.error("Twilio credentials missing");
+      return json({ success: false, message: "Twilio SMS service not configured" });
     }
-    const gatewayHeaders = {
+    const twilioHeaders = {
       "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-      "X-Connection-Api-Key": GATEWAYAPI_API_KEY,
-      "Content-Type": "application/json",
+      "X-Connection-Api-Key": TWILIO_API_KEY,
+      "Content-Type": "application/x-www-form-urlencoded",
     };
 
-    const recipient = Number(to.replace("+", ""));
-    const resp = await fetch(`${GATEWAY_URL}/mobile/single`, {
+    const resp = await fetch(`${TWILIO_GATEWAY_URL}/Messages.json`, {
       method: "POST",
-      headers: gatewayHeaders,
-      body: JSON.stringify({ sender: SMS_SENDER, recipient, message: parsed.data.message }),
+      headers: twilioHeaders,
+      body: new URLSearchParams({ To: to, From: TWILIO_SENDER, Body: parsed.data.message }),
     });
     const responseText = await resp.text();
     let data: Record<string, unknown> = {};
@@ -67,7 +66,7 @@ Deno.serve(async (req) => {
       console.error(`SMS to ${to} failed [${resp.status}]:`, JSON.stringify(data));
       return json({
         success: false,
-        message: typeof data.message === "string" ? data.message : "SMS provider rejected the message",
+       message: typeof data.message === "string" ? data.message : "Twilio rejected the message",
       });
     }
     return json({ success: true, message: `Message sent to ${to}`, id: data.id });
