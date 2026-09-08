@@ -4,14 +4,13 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import safetyIntro from "@/assets/safety-intro.mp4.asset.json";
 
-const INTRO_SEEN_KEY = "e-complaint-safety-intro-seen";
-
 const SafetyIntro = () => {
   const { user, loading } = useAuth();
   const [open, setOpen] = useState(false);
 
+  // Show the intro video on every visit until the user signs in.
   useEffect(() => {
-    if (loading || user || window.localStorage.getItem(INTRO_SEEN_KEY) === "1") return;
+    if (loading || user) return;
     setOpen(true);
   }, [loading, user]);
 
@@ -20,7 +19,6 @@ const SafetyIntro = () => {
   }, [user]);
 
   const closeIntro = () => {
-    window.localStorage.setItem(INTRO_SEEN_KEY, "1");
     setOpen(false);
   };
 
