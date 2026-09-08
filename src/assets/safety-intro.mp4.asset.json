@@ -1,9 +1,11 @@
 {
   "version": 1,
-  "asset_id": "b6890746-d677-4b5c-b05b-2677c253840c",
+  "asset_id": "ba06ab33-9c78-4a01-ac9a-e636ed166670",
   "project_id": "93a03c84-c961-428e-9b00-c2206a09ce22",
-  "url": "/__l5e/assets-v1/b6890746-d677-4b5c-b05b-2677c253840c/safety-intro.mp4",
+  "url": "/__l5e/assets-v1/ba06ab33-9c78-4a01-ac9a-e636ed166670/safety-intro.mp4",
+  "r2_key": "a/v1/93a03c84-c961-428e-9b00-c2206a09ce22/ba06ab33-9c78-4a01-ac9a-e636ed166670/safety-intro.mp4",
   "original_filename": "safety-intro.mp4",
-  "size": 7417222,
-  "created_at": "2026-09-07T01:19:50Z"
+  "size": 1182411,
+  "content_type": "video/mp4",
+  "created_at": "2026-09-08T00:31:43Z"
 }
